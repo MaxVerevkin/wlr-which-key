@@ -1,0 +1,25 @@
+[package]
+name = "wlr-which-key"
+version = "0.1.0"
+edition = "2021"
+description = "Keymap manager for wlroots-based compositors"
+repository = "https://github.com/MaxVerevkin/wlr-which-key/"
+readme = "README.md"
+license = "GPL-3.0-only"
+authors = ["MaxVerevkin <maxxverr@gmail.com>"]
+
+[dependencies]
+log = "0.4"
+env_logger = "0.9"
+smithay-client-toolkit = { git = "https://github.com/Smithay/client-toolkit" }
+pangocairo = "0.15"
+anyhow = "1"
+libc = "0.2"
+dirs-next = "2"
+indexmap = { version = "1.9", features = ["serde"] }
+serde = { version = "1", features = ["derive"] }
+serde_yaml = "0.9"
+
+[profile.release]
+strip = true
+lto = "fat"
