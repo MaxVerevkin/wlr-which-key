@@ -22,7 +22,7 @@ struct MenuItem {
 
 pub enum Action {
     Exec(String),
-    Submenu(Box<Menu>),
+    Submenu(Menu),
 }
 
 impl Menu {
@@ -56,9 +56,7 @@ impl Menu {
                     desc,
                 } => {
                     items.push(MenuItem {
-                        action: Action::Submenu(Box::new(Self::new_with_centext(
-                            font, context, entries,
-                        ))),
+                        action: Action::Submenu(Self::new_with_centext(font, context, entries)),
                         key_comp: ComputedText::new(key, context, font),
                         val_comp: ComputedText::new(&format!("+{desc}"), context, font),
                         key_str: key.into(),

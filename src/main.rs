@@ -293,7 +293,7 @@ impl KeyboardHandler for State {
                     let layer = self.layer.as_mut().expect("no layer?");
                     self.width = (new_menu.width() + self.config.corner_r * 2.0) as u32;
                     self.height = (new_menu.height() + self.config.corner_r * 2.0) as u32;
-                    self.menu = *new_menu;
+                    self.menu = new_menu;
                     layer.set_size(self.width, self.height);
                     layer.wl_surface().commit();
                 }
