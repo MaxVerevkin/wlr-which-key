@@ -421,9 +421,12 @@ impl State {
         self.menu.render(&self.config, &cairo_ctx).unwrap();
 
         // Damage the entire window
-        layer
-            .wl_surface()
-            .damage_buffer(0, 0, self.width as i32, self.height as i32);
+        layer.wl_surface().damage_buffer(
+            0,
+            0,
+            self.width as i32 * self.scale,
+            self.height as i32 * self.scale,
+        );
 
         // Attach and commit to present.
         buffer.attach_to(layer.wl_surface()).expect("buffer attach");
