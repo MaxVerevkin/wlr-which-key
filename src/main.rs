@@ -269,7 +269,12 @@ impl KeyboardHandler for State {
             return;
         }
 
-        if let Some(key) = event.utf8 && let Some(action) = self.menu.get_action(&key) {
+        let key = match event.utf8 {
+            Some(key) => key,
+            None => return,
+        };
+
+        if let Some(action) = self.menu.get_action(&key) {
             match action {
                 menu::Action::Exec(cmd) => {
                     let mut proc = Command::new("sh");
