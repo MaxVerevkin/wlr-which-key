@@ -10,15 +10,18 @@ authors = ["MaxVerevkin <maxxverr@gmail.com>"]
 
 [dependencies]
 log = "0.4"
-env_logger = "0.9"
-smithay-client-toolkit = { git = "https://github.com/Smithay/client-toolkit" }
-pangocairo = "0.15"
+env_logger = "0.10"
+pangocairo = "0.17"
 anyhow = "1"
 libc = "0.2"
 dirs-next = "2"
 indexmap = { version = "1.9", features = ["serde"] }
 serde = { version = "1", features = ["derive"] }
 serde_yaml = "0.9"
+wayrs-client = "0.5"
+wayrs-protocols = { version = "0.5", features = ["wlr-layer-shell-unstable-v1"] }
+wayrs-utils = { version = "0.4.0-beta.1", features = ["shm_alloc", "seats"] }
+xkbcommon = "0.5.0"
 
 [profile.release]
 strip = true

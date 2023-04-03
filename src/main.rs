@@ -3,380 +3,165 @@ extern crate log;
 
 mod color;
 mod config;
+mod keyboard;
 mod menu;
 mod text;
 
-use std::{
-    f64::consts::{FRAC_PI_2, PI, TAU},
-    io,
-    os::unix::process::CommandExt,
-    process::{Command, Stdio},
-};
+use std::collections::HashSet;
+use std::f64::consts::{FRAC_PI_2, PI, TAU};
+use std::io;
+use std::os::unix::process::CommandExt;
+use std::process::{Command, Stdio};
 
-use smithay_client_toolkit::{
-    compositor::{CompositorHandler, CompositorState},
-    delegate_compositor, delegate_keyboard, delegate_layer, delegate_output, delegate_registry,
-    delegate_seat, delegate_shm,
-    output::{OutputHandler, OutputState},
-    reexports::client::{
-        protocol::{wl_keyboard, wl_output, wl_seat, wl_shm, wl_surface},
-        Connection, QueueHandle,
-    },
-    registry::{ProvidesRegistryState, RegistryState},
-    registry_handlers,
-    seat::{
-        keyboard::{keysyms, KeyEvent, KeyboardHandler, Modifiers},
-        Capability, SeatHandler, SeatState,
-    },
-    shell::layer::{
-        KeyboardInteractivity, Layer, LayerHandler, LayerState, LayerSurface, LayerSurfaceConfigure,
-    },
-    shm::{slot::SlotPool, ShmHandler, ShmState},
-};
-
+use keyboard::{Keyboard, KeyboardHandler, RepeatInfo};
 use pangocairo::cairo;
+use xkbcommon::xkb;
 
-fn main() {
+use wayrs_client::connection::Connection;
+use wayrs_client::object::ObjectId;
+use wayrs_client::protocol::*;
+use wayrs_client::proxy::Proxy;
+use wayrs_client::{global::*, IoMode};
+use wayrs_protocols::wlr_layer_shell_unstable_v1::*;
+use wayrs_utils::seats::{SeatHandler, Seats};
+use wayrs_utils::shm_alloc::{BufferSpec, ShmAlloc};
+
+fn main() -> anyhow::Result<()> {
     env_logger::init();
 
-    let config = config::Config::new().unwrap();
+    let config = config::Config::new()?;
     if config.menu.0.is_empty() {
-        return;
+        return Ok(());
     }
 
-    let conn = Connection::connect_to_env().unwrap();
-    let mut event_queue = conn.new_event_queue();
-    let qh = event_queue.handle();
+    let mut conn = Connection::connect()?;
+    let globals = conn.blocking_collect_initial_globals()?;
+    conn.add_registry_cb(wl_registry_cb);
+
+    let wl_shm: WlShm = globals.bind(&mut conn, 1..=1)?;
+    let wl_compositor: WlCompositor = globals.bind(&mut conn, 4..=4)?;
+    let wlr_layer_shell: ZwlrLayerShellV1 = globals.bind(&mut conn, 2..=2)?;
+
+    let seats = Seats::bind(&mut conn, &globals);
+    let shm_alloc = ShmAlloc::new(wl_shm);
 
     let menu = menu::Menu::new(&config.font, &config.menu);
 
-    let mut state = State {
-        registry_state: RegistryState::new(&conn, &qh),
-        seat_state: SeatState::new(),
-        output_state: OutputState::new(),
-        compositor_state: CompositorState::new(),
-        shm_state: ShmState::new(),
-        layer_state: LayerState::new(),
+    let width = (menu.width() + config.corner_r * 2.0) as u32;
+    let height = (menu.height() + config.corner_r * 2.0) as u32;
 
+    let wl_surface = wl_compositor.create_surface_with_cb(&mut conn, wl_surface_cb);
+
+    let layer_surface = wlr_layer_shell.get_layer_surface_with_cb(
+        &mut conn,
+        wl_surface,
+        WlOutput::null(),
+        zwlr_layer_shell_v1::Layer::Overlay,
+        wayrs_client::cstr!("wlr_which_key").into(),
+        layer_surface_cb,
+    );
+    layer_surface.set_size(&mut conn, width, height);
+    layer_surface.set_keyboard_interactivity(
+        &mut conn,
+        zwlr_layer_surface_v1::KeyboardInteractivity::Exclusive,
+    );
+    wl_surface.commit(&mut conn);
+
+    let mut state = State {
+        shm_alloc,
+        seats,
+        keyboards: Vec::new(),
+        outputs: Vec::new(),
+
+        wl_surface,
+        layer_surface,
+        visible_on_outputs: HashSet::new(),
         exit: false,
         configured: false,
-        pool: None,
-        width: (menu.width() + config.corner_r * 2.0) as u32,
-        height: (menu.height() + config.corner_r * 2.0) as u32,
-        scale: 1,
-        layer: None,
-        keyboards: Vec::new(),
+        width,
+        height,
         menu,
         config,
     };
 
-    while !state.registry_state.ready() {
-        event_queue.blocking_dispatch(&mut state).unwrap();
-    }
-
-    let pool = SlotPool::new(
-        state.width as usize * state.height as usize * 4,
-        &state.shm_state,
-    )
-    .expect("Failed to create pool");
-    state.pool = Some(pool);
-
-    let surface = state.compositor_state.create_surface(&qh).unwrap();
-    let layer = LayerSurface::builder()
-        .size((state.width, state.height))
-        .keyboard_interactivity(KeyboardInteractivity::Exclusive)
-        .namespace("wlr_which_key")
-        .map(&qh, &mut state.layer_state, surface, Layer::Top)
-        .expect("layer surface creation");
-    state.layer = Some(layer);
+    globals
+        .iter()
+        .filter(|g| g.is::<WlOutput>())
+        .for_each(|g| state.bind_output(&mut conn, g));
 
     while !state.exit {
-        event_queue
-            .blocking_dispatch(&mut state)
-            .expect("dispatching");
+        conn.flush(IoMode::Blocking)?;
+        conn.recv_events(IoMode::Blocking)?;
+        conn.dispatch_events(&mut state);
     }
+
+    Ok(())
 }
 
 struct State {
-    registry_state: RegistryState,
-    seat_state: SeatState,
-    output_state: OutputState,
-    compositor_state: CompositorState,
-    shm_state: ShmState,
-    layer_state: LayerState,
+    shm_alloc: ShmAlloc,
+    seats: Seats,
+    keyboards: Vec<Keyboard>,
+    outputs: Vec<Output>,
 
+    wl_surface: WlSurface,
+    layer_surface: ZwlrLayerSurfaceV1,
+    visible_on_outputs: HashSet<ObjectId>,
     exit: bool,
     configured: bool,
-    pool: Option<SlotPool>,
     width: u32,
     height: u32,
-    scale: i32,
-    layer: Option<LayerSurface>,
-    keyboards: Vec<(wl_seat::WlSeat, wl_keyboard::WlKeyboard)>,
     menu: menu::Menu,
     config: config::Config,
 }
 
-impl CompositorHandler for State {
-    fn compositor_state(&mut self) -> &mut CompositorState {
-        &mut self.compositor_state
-    }
-
-    fn scale_factor_changed(
-        &mut self,
-        _: &Connection,
-        _: &QueueHandle<Self>,
-        _: &wl_surface::WlSurface,
-        scale: i32,
-    ) {
-        self.scale = scale;
-        self.draw();
-    }
-
-    fn frame(&mut self, _: &Connection, _: &QueueHandle<Self>, _: &wl_surface::WlSurface, _: u32) {}
-}
-
-impl OutputHandler for State {
-    fn output_state(&mut self) -> &mut OutputState {
-        &mut self.output_state
-    }
-
-    fn new_output(
-        &mut self,
-        _conn: &Connection,
-        _qh: &QueueHandle<Self>,
-        _output: wl_output::WlOutput,
-    ) {
-    }
-
-    fn update_output(
-        &mut self,
-        _conn: &Connection,
-        _qh: &QueueHandle<Self>,
-        _output: wl_output::WlOutput,
-    ) {
-    }
-
-    fn output_destroyed(
-        &mut self,
-        _conn: &Connection,
-        _qh: &QueueHandle<Self>,
-        _output: wl_output::WlOutput,
-    ) {
-    }
-}
-
-impl LayerHandler for State {
-    fn layer_state(&mut self) -> &mut LayerState {
-        &mut self.layer_state
-    }
-
-    fn closed(&mut self, _: &Connection, _: &QueueHandle<Self>, _: &LayerSurface) {
-        self.exit = true;
-    }
-
-    fn configure(
-        &mut self,
-        _: &Connection,
-        _: &QueueHandle<Self>,
-        _: &LayerSurface,
-        configure: LayerSurfaceConfigure,
-        _: u32,
-    ) {
-        if configure.new_size.0 != 0 {
-            self.width = configure.new_size.0;
-        }
-        if configure.new_size.1 != 0 {
-            self.height = configure.new_size.1;
-        }
-
-        self.configured = true;
-        self.draw();
-    }
-}
-
-impl SeatHandler for State {
-    fn seat_state(&mut self) -> &mut SeatState {
-        &mut self.seat_state
-    }
-
-    fn new_seat(&mut self, _: &Connection, _: &QueueHandle<Self>, _: wl_seat::WlSeat) {}
-
-    fn remove_seat(&mut self, _: &Connection, _: &QueueHandle<Self>, _: wl_seat::WlSeat) {}
-
-    fn new_capability(
-        &mut self,
-        _: &Connection,
-        qh: &QueueHandle<Self>,
-        seat: wl_seat::WlSeat,
-        capability: Capability,
-    ) {
-        if capability == Capability::Keyboard {
-            let kbd = self
-                .seat_state
-                .get_keyboard(qh, &seat, None)
-                .expect("Failed to get keyboard");
-            self.keyboards.push((seat, kbd));
-        }
-    }
-
-    fn remove_capability(
-        &mut self,
-        _: &Connection,
-        _: &QueueHandle<Self>,
-        seat: wl_seat::WlSeat,
-        capability: Capability,
-    ) {
-        if capability == Capability::Keyboard {
-            self.keyboards.retain(|(s, _)| *s != seat);
-        }
-    }
-}
-
-impl KeyboardHandler for State {
-    fn enter(
-        &mut self,
-        _: &Connection,
-        _: &QueueHandle<Self>,
-        _: &wl_keyboard::WlKeyboard,
-        _: &wl_surface::WlSurface,
-        _: u32,
-        _: &[u32],
-        _: &[u32],
-    ) {
-    }
-
-    fn leave(
-        &mut self,
-        _: &Connection,
-        _: &QueueHandle<Self>,
-        _: &wl_keyboard::WlKeyboard,
-        _: &wl_surface::WlSurface,
-        _: u32,
-    ) {
-    }
-
-    fn press_key(
-        &mut self,
-        _: &Connection,
-        _: &QueueHandle<Self>,
-        _: &wl_keyboard::WlKeyboard,
-        _: u32,
-        event: KeyEvent,
-    ) {
-        if event.keysym == keysyms::XKB_KEY_Escape {
-            self.exit = true;
-            return;
-        }
-
-        let key = match event.utf8 {
-            Some(key) => key,
-            None => return,
-        };
-
-        if let Some(action) = self.menu.get_action(&key) {
-            match action {
-                menu::Action::Exec(cmd) => {
-                    let mut proc = Command::new("sh");
-                    proc.args(["-c", &cmd]);
-                    proc.stdin(Stdio::null());
-                    proc.stdout(Stdio::null());
-                    // Safety: libc::daemon() is async-signal-safe
-                    unsafe {
-                        proc.pre_exec(|| match libc::daemon(1, 0) {
-                            -1 => Err(io::Error::new(
-                                io::ErrorKind::Other,
-                                "Failed to detach new process",
-                            )),
-                            _ => Ok(()),
-                        });
-                    }
-                    proc.spawn().unwrap().wait().unwrap();
-                    self.exit = true;
-                }
-                menu::Action::Submenu(new_menu) => {
-                    let layer = self.layer.as_mut().expect("no layer?");
-                    self.width = (new_menu.width() + self.config.corner_r * 2.0) as u32;
-                    self.height = (new_menu.height() + self.config.corner_r * 2.0) as u32;
-                    self.menu = new_menu;
-                    layer.set_size(self.width, self.height);
-                    layer.wl_surface().commit();
-                }
-            }
-        }
-    }
-
-    fn release_key(
-        &mut self,
-        _: &Connection,
-        _: &QueueHandle<Self>,
-        _: &wl_keyboard::WlKeyboard,
-        _: u32,
-        _: KeyEvent,
-    ) {
-    }
-
-    fn update_modifiers(
-        &mut self,
-        _: &Connection,
-        _: &QueueHandle<Self>,
-        _: &wl_keyboard::WlKeyboard,
-        _: u32,
-        _: Modifiers,
-    ) {
-    }
-
-    fn update_repeat_info(
-        &mut self,
-        _: &Connection,
-        _: &QueueHandle<Self>,
-        _: &wl_keyboard::WlKeyboard,
-        _: smithay_client_toolkit::seat::keyboard::RepeatInfo,
-    ) {
-    }
-}
-
-impl ShmHandler for State {
-    fn shm_state(&mut self) -> &mut ShmState {
-        &mut self.shm_state
-    }
+struct Output {
+    wl: WlOutput,
+    reg_name: u32,
+    scale: u32,
 }
 
 impl State {
-    pub fn draw(&mut self) {
+    fn draw(&mut self, conn: &mut Connection<Self>) {
         if !self.configured {
             return;
         }
 
-        let layer = self.layer.as_mut().expect("no layer?");
-        let pool = self.pool.as_mut().expect("no pool?");
-        let stride = self.width as i32 * 4;
+        let scale = self
+            .outputs
+            .iter()
+            .filter(|o| self.visible_on_outputs.contains(&o.wl.id()))
+            .map(|o| o.scale)
+            .max()
+            .unwrap_or(1);
+
         let width_f = self.width as f64;
         let height_f = self.height as f64;
 
-        let (buffer, canvas) = pool
-            .create_buffer(
-                self.width as i32 * self.scale,
-                self.height as i32 * self.scale,
-                stride * self.scale,
-                wl_shm::Format::Argb8888,
-            )
-            .expect("create buffer");
+        let (buffer, canvas) = self.shm_alloc.alloc_buffer(
+            conn,
+            BufferSpec {
+                width: self.width * scale,
+                height: self.height * scale,
+                stride: self.width * 4 * scale,
+                format: wl_shm::Format::Argb8888,
+            },
+        );
 
         let cairo_surf = unsafe {
             cairo::ImageSurface::create_for_data_unsafe(
                 canvas.as_mut_ptr(),
                 cairo::Format::ARgb32,
-                self.width as i32 * self.scale,
-                self.height as i32 * self.scale,
-                stride * self.scale,
+                (self.width * scale) as i32,
+                (self.height * scale) as i32,
+                (self.width * 4 * scale) as i32,
             )
             .expect("cairo surface")
         };
 
         let cairo_ctx = cairo::Context::new(&cairo_surf).expect("cairo context");
-        cairo_ctx.scale(self.scale as f64, self.scale as f64);
-        layer.wl_surface().set_buffer_scale(self.scale);
+        cairo_ctx.scale(scale as f64, scale as f64);
+        self.wl_surface.set_buffer_scale(conn, scale as i32);
 
         // background with rounded corners
         cairo_ctx.save().unwrap();
@@ -421,37 +206,185 @@ impl State {
         self.menu.render(&self.config, &cairo_ctx).unwrap();
 
         // Damage the entire window
-        layer.wl_surface().damage_buffer(
+        self.wl_surface.damage_buffer(
+            conn,
             0,
             0,
-            self.width as i32 * self.scale,
-            self.height as i32 * self.scale,
+            (self.width * scale) as i32,
+            (self.height * scale) as i32,
         );
 
         // Attach and commit to present.
-        buffer.attach_to(layer.wl_surface()).expect("buffer attach");
-        layer.wl_surface().commit();
+        self.wl_surface.attach(conn, buffer.into_wl_buffer(), 0, 0);
+        self.wl_surface.commit(conn);
+    }
+
+    fn bind_output(&mut self, conn: &mut Connection<Self>, global: &Global) {
+        let wl: WlOutput = global.bind_with_cb(conn, 1..=4, wl_output_cb).unwrap();
+        self.outputs.push(Output {
+            wl,
+            reg_name: global.name,
+            scale: 1,
+        });
     }
 }
 
-delegate_compositor!(State);
-delegate_output!(State);
-delegate_shm!(State);
-delegate_seat!(State);
-delegate_keyboard!(State);
-delegate_layer!(State);
-delegate_registry!(State);
-
-impl ProvidesRegistryState for State {
-    fn registry(&mut self) -> &mut RegistryState {
-        &mut self.registry_state
+impl SeatHandler for State {
+    fn get_seats(&mut self) -> &mut Seats {
+        &mut self.seats
     }
 
-    registry_handlers![
-        CompositorState,
-        OutputState,
-        ShmState,
-        SeatState,
-        LayerState,
-    ];
+    fn keyboard_added(&mut self, conn: &mut Connection<Self>, seat: WlSeat) {
+        self.keyboards.push(Keyboard::new(conn, seat));
+    }
+
+    fn keyboard_removed(&mut self, conn: &mut Connection<Self>, seat: WlSeat) {
+        let i = self
+            .keyboards
+            .iter()
+            .position(|k| k.wl_seat == seat)
+            .unwrap();
+        let keyboard = self.keyboards.swap_remove(i);
+        keyboard.release(conn);
+    }
+}
+
+impl KeyboardHandler for State {
+    fn keyboard(&mut self, wl_keyboard: WlKeyboard) -> Option<&mut Keyboard> {
+        self.keyboards
+            .iter_mut()
+            .find(|k| k.wl_keyboard == wl_keyboard)
+    }
+
+    fn key_pressed(
+        &mut self,
+        conn: &mut Connection<Self>,
+        _: WlKeyboard,
+        xkb: xkb::State,
+        key_code: xkb::Keycode,
+    ) {
+        if xkb.key_get_one_sym(key_code) == xkb::keysyms::KEY_Escape {
+            self.exit = true;
+            conn.break_dispatch_loop();
+            return;
+        }
+
+        if let Some(action) = self.menu.get_action(&xkb.key_get_utf8(key_code)) {
+            match action {
+                menu::Action::Exec(cmd) => {
+                    let mut proc = Command::new("sh");
+                    proc.args(["-c", &cmd]);
+                    proc.stdin(Stdio::null());
+                    proc.stdout(Stdio::null());
+                    // Safety: libc::daemon() is async-signal-safe
+                    unsafe {
+                        proc.pre_exec(|| match libc::daemon(1, 0) {
+                            -1 => Err(io::Error::new(
+                                io::ErrorKind::Other,
+                                "Failed to detach new process",
+                            )),
+                            _ => Ok(()),
+                        });
+                    }
+                    proc.spawn().unwrap().wait().unwrap();
+                    self.exit = true;
+                }
+                menu::Action::Submenu(new_menu) => {
+                    self.width = (new_menu.width() + self.config.corner_r * 2.0) as u32;
+                    self.height = (new_menu.height() + self.config.corner_r * 2.0) as u32;
+                    self.menu = new_menu;
+
+                    self.layer_surface.set_size(conn, self.width, self.height);
+                    self.wl_surface.commit(conn);
+                }
+            }
+        }
+    }
+
+    fn key_released(
+        &mut self,
+        _: &mut Connection<Self>,
+        _: WlKeyboard,
+        _: xkb::State,
+        _: xkb::Keycode,
+    ) {
+    }
+
+    fn repeat_info(&mut self, _: &mut Connection<Self>, _: WlKeyboard, _: RepeatInfo) {}
+}
+
+fn wl_registry_cb(conn: &mut Connection<State>, state: &mut State, event: &wl_registry::Event) {
+    match event {
+        wl_registry::Event::Global(g) if g.is::<WlOutput>() => state.bind_output(conn, g),
+        wl_registry::Event::GlobalRemove(name) => {
+            if let Some(output_i) = state.outputs.iter().position(|o| o.reg_name == *name) {
+                let output = state.outputs.swap_remove(output_i);
+                state.visible_on_outputs.remove(&output.wl.id());
+                if output.wl.version() >= 3 {
+                    output.wl.release(conn);
+                }
+            }
+        }
+        _ => (),
+    }
+}
+
+fn wl_output_cb(
+    conn: &mut Connection<State>,
+    state: &mut State,
+    output: WlOutput,
+    event: wl_output::Event,
+) {
+    if let wl_output::Event::Scale(scale) = event {
+        let output = state.outputs.iter_mut().find(|o| o.wl == output).unwrap();
+        let scale: u32 = scale.try_into().unwrap();
+        if output.scale != scale {
+            output.scale = scale;
+            state.draw(conn);
+        }
+    }
+}
+
+fn wl_surface_cb(
+    conn: &mut Connection<State>,
+    state: &mut State,
+    surface: WlSurface,
+    event: wl_surface::Event,
+) {
+    assert_eq!(surface, state.wl_surface);
+    match event {
+        wl_surface::Event::Enter(output) => {
+            state.visible_on_outputs.insert(output);
+            state.draw(conn);
+        }
+        wl_surface::Event::Leave(output) => {
+            state.visible_on_outputs.remove(&output);
+        }
+    }
+}
+
+fn layer_surface_cb(
+    conn: &mut Connection<State>,
+    state: &mut State,
+    surface: ZwlrLayerSurfaceV1,
+    event: zwlr_layer_surface_v1::Event,
+) {
+    assert_eq!(surface, state.layer_surface);
+    match event {
+        zwlr_layer_surface_v1::Event::Configure(args) => {
+            if args.width != 0 {
+                state.width = args.width;
+            }
+            if args.height != 0 {
+                state.height = args.height;
+            }
+            state.configured = true;
+            surface.ack_configure(conn, args.serial);
+            state.draw(conn);
+        }
+        zwlr_layer_surface_v1::Event::Closed => {
+            state.exit = true;
+            conn.break_dispatch_loop();
+        }
+    }
 }

@@ -28,8 +28,8 @@ pub enum Action {
 impl Menu {
     pub fn new(font: &pango::FontDescription, entries: &config::Entries) -> Self {
         let context = pango::Context::new();
-        let fontmap = pangocairo::FontMap::new().unwrap();
-        context.set_font_map(&fontmap);
+        let fontmap = pangocairo::FontMap::new();
+        context.set_font_map(Some(&fontmap));
         Self::new_with_centext(font, &context, entries)
     }
 
