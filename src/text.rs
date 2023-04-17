@@ -37,11 +37,20 @@ impl ComputedText {
         pangocairo::update_layout(context, &self.layout);
 
         context.save()?;
+
         context.translate(options.x, options.y);
+
         options.fg_color.apply(context);
         context.translate(0.0, (options.height - self.height) * 0.5);
         pangocairo::show_layout(context, &self.layout);
+
         context.restore()?;
+
+        if std::env::var("WLR_WHICH_KEY_LAYOUT_DEBUG").as_deref() == Ok("1") {
+            Color::from_rgba(255, 0, 0, 255).apply(context);
+            context.rectangle(options.x, options.y, self.width, options.height);
+            context.stroke().unwrap();
+        }
 
         Ok(())
     }
