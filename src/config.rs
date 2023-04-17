@@ -1,28 +1,37 @@
-use crate::color::Color;
+use std::fmt;
+use std::fs::read_to_string;
+use std::ops::Deref;
+
 use anyhow::{Context, Result};
 use dirs_next::config_dir;
 use indexmap::IndexMap;
 use pangocairo::pango::FontDescription;
 use serde::{de, Deserialize};
-use std::fmt;
-use std::fs::read_to_string;
-use std::ops::Deref;
+use smart_default::SmartDefault;
 use wayrs_protocols::wlr_layer_shell_unstable_v1::zwlr_layer_surface_v1::Anchor;
+
+use crate::color::Color;
 
 #[derive(Deserialize, Default)]
 #[serde(transparent)]
 pub struct Entries(pub IndexMap<String, Entry>);
 
-#[derive(Deserialize)]
+#[derive(Deserialize, SmartDefault)]
 #[serde(deny_unknown_fields, default)]
 pub struct Config {
+    #[default(Color::from_rgba_hex(0x282828ff))]
     pub background: Color,
+    #[default(Color::from_rgba_hex(0xfbf1c7ff))]
     pub color: Color,
+    #[default(Color::from_rgba_hex(0x8ec07cff))]
     pub border: Color,
     pub anchor: ConfigAnchor,
 
+    #[default(Font::new("monospace 10"))]
     pub font: Font,
+    #[default(4.0)]
     pub border_width: f64,
+    #[default(20.0)]
     pub corner_r: f64,
 
     pub menu: Entries,
@@ -33,22 +42,6 @@ pub struct Config {
 pub enum Entry {
     Cmd { cmd: String, desc: String },
     Recursive { submenu: Box<Entries>, desc: String },
-}
-
-impl Default for Config {
-    fn default() -> Self {
-        Self {
-            // A kind of gruvbox theme
-            background: Color::from_rgba_hex(0x282828ff),
-            color: Color::from_rgba_hex(0xfbf1c7ff),
-            border: Color::from_rgba_hex(0x8ec07cff),
-            border_width: 4.0,
-            corner_r: 20.0,
-            font: Font::new("monospace 10"),
-            menu: Default::default(),
-            anchor: ConfigAnchor::default(),
-        }
-    }
 }
 
 impl Config {
