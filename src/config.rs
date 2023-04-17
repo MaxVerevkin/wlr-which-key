@@ -7,6 +7,7 @@ use serde::{de, Deserialize};
 use std::fmt;
 use std::fs::read_to_string;
 use std::ops::Deref;
+use wayrs_protocols::wlr_layer_shell_unstable_v1::zwlr_layer_surface_v1::Anchor;
 
 #[derive(Deserialize, Default)]
 #[serde(transparent)]
@@ -18,6 +19,7 @@ pub struct Config {
     pub background: Color,
     pub color: Color,
     pub border: Color,
+    pub anchor: ConfigAnchor,
 
     pub font: Font,
     pub border_width: f64,
@@ -44,6 +46,7 @@ impl Default for Config {
             corner_r: 20.0,
             font: Font::new("monospace 10"),
             menu: Default::default(),
+            anchor: ConfigAnchor::default(),
         }
     }
 }
@@ -111,5 +114,40 @@ impl<'de> de::Deserialize<'de> for Font {
         }
 
         deserializer.deserialize_str(FontVisitor)
+    }
+}
+
+/// Light wrapper around `Anchor` which also supports the "no anchor" value.
+///
+/// This type is also requires to derive `Deserialize` for the foreign type.
+#[derive(Deserialize, Default, Clone, Copy)]
+#[serde(rename_all(deserialize = "kebab-case"))]
+pub enum ConfigAnchor {
+    #[default]
+    Center,
+    Top,
+    Bottom,
+    Left,
+    Right,
+    TopLeft,
+    TopRight,
+    BottomLeft,
+    BottomRight,
+}
+
+/// Convert this anchor into the type expected by `wayrs`.
+impl From<ConfigAnchor> for Anchor {
+    fn from(value: ConfigAnchor) -> Self {
+        match value {
+            ConfigAnchor::Center => Anchor::empty(),
+            ConfigAnchor::Top => Anchor::Top,
+            ConfigAnchor::Bottom => Anchor::Bottom,
+            ConfigAnchor::Left => Anchor::Left,
+            ConfigAnchor::Right => Anchor::Right,
+            ConfigAnchor::TopLeft => Anchor::Top | Anchor::Left,
+            ConfigAnchor::TopRight => Anchor::Top | Anchor::Right,
+            ConfigAnchor::BottomLeft => Anchor::Bottom | Anchor::Left,
+            ConfigAnchor::BottomRight => Anchor::Bottom | Anchor::Right,
+        }
     }
 }

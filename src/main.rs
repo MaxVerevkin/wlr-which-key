@@ -58,6 +58,7 @@ fn main() -> anyhow::Result<()> {
         wayrs_client::cstr!("wlr_which_key").into(),
         layer_surface_cb,
     );
+    layer_surface.set_anchor(&mut conn, config.anchor.into());
     layer_surface.set_size(&mut conn, width, height);
     layer_surface.set_keyboard_interactivity(
         &mut conn,
