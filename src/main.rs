@@ -3,7 +3,6 @@ extern crate log;
 
 mod color;
 mod config;
-mod keyboard;
 mod menu;
 mod text;
 
@@ -13,9 +12,7 @@ use std::io;
 use std::os::unix::process::CommandExt;
 use std::process::{Command, Stdio};
 
-use keyboard::{Keyboard, KeyboardHandler, RepeatInfo};
 use pangocairo::cairo;
-use xkbcommon::xkb;
 
 use wayrs_client::connection::Connection;
 use wayrs_client::object::ObjectId;
@@ -23,6 +20,7 @@ use wayrs_client::protocol::*;
 use wayrs_client::proxy::Proxy;
 use wayrs_client::{global::*, IoMode};
 use wayrs_protocols::wlr_layer_shell_unstable_v1::*;
+use wayrs_utils::keyboard::{xkb, Keyboard, KeyboardEvent, KeyboardHandler};
 use wayrs_utils::seats::{SeatHandler, Seats};
 use wayrs_utils::shm_alloc::{BufferSpec, ShmAlloc};
 
@@ -242,34 +240,32 @@ impl SeatHandler for State {
         let i = self
             .keyboards
             .iter()
-            .position(|k| k.wl_seat == seat)
+            .position(|k| k.seat() == seat)
             .unwrap();
         let keyboard = self.keyboards.swap_remove(i);
-        keyboard.release(conn);
+        keyboard.destroy(conn);
     }
 }
 
 impl KeyboardHandler for State {
-    fn keyboard(&mut self, wl_keyboard: WlKeyboard) -> Option<&mut Keyboard> {
+    fn get_keyboard(&mut self, wl_keyboard: WlKeyboard) -> &mut Keyboard {
         self.keyboards
             .iter_mut()
-            .find(|k| k.wl_keyboard == wl_keyboard)
+            .find(|k| k.wl_keyboard() == wl_keyboard)
+            .unwrap()
     }
 
-    fn key_pressed(
-        &mut self,
-        conn: &mut Connection<Self>,
-        _: WlKeyboard,
-        xkb: xkb::State,
-        key_code: xkb::Keycode,
-    ) {
-        if xkb.key_get_one_sym(key_code) == xkb::keysyms::KEY_Escape {
+    fn key_presed(&mut self, conn: &mut Connection<Self>, event: KeyboardEvent) {
+        if event.xkb_state.key_get_one_sym(event.keycode) == xkb::keysyms::KEY_Escape {
             self.exit = true;
             conn.break_dispatch_loop();
             return;
         }
 
-        if let Some(action) = self.menu.get_action(&xkb.key_get_utf8(key_code)) {
+        if let Some(action) = self
+            .menu
+            .get_action(&event.xkb_state.key_get_utf8(event.keycode))
+        {
             match action {
                 menu::Action::Exec(cmd) => {
                     let mut proc = Command::new("sh");
@@ -301,16 +297,7 @@ impl KeyboardHandler for State {
         }
     }
 
-    fn key_released(
-        &mut self,
-        _: &mut Connection<Self>,
-        _: WlKeyboard,
-        _: xkb::State,
-        _: xkb::Keycode,
-    ) {
-    }
-
-    fn repeat_info(&mut self, _: &mut Connection<Self>, _: WlKeyboard, _: RepeatInfo) {}
+    fn key_released(&mut self, _: &mut Connection<Self>, _: KeyboardEvent) {}
 }
 
 fn wl_registry_cb(conn: &mut Connection<State>, state: &mut State, event: &wl_registry::Event) {
@@ -360,6 +347,7 @@ fn wl_surface_cb(
         wl_surface::Event::Leave(output) => {
             state.visible_on_outputs.remove(&output);
         }
+        _ => (),
     }
 }
 
@@ -386,5 +374,6 @@ fn layer_surface_cb(
             state.exit = true;
             conn.break_dispatch_loop();
         }
+        _ => (),
     }
 }
