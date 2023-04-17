@@ -29,7 +29,7 @@ fn main() -> anyhow::Result<()> {
 
     let config = config::Config::new()?;
     if config.menu.0.is_empty() {
-        return Ok(());
+        anyhow::bail!("No key mappings defined");
     }
 
     let mut conn = Connection::connect()?;
