@@ -60,6 +60,13 @@ fn main() -> anyhow::Result<()> {
     );
     layer_surface.set_anchor(&mut conn, config.anchor.into());
     layer_surface.set_size(&mut conn, width, height);
+    layer_surface.set_margin(
+        &mut conn,
+        config.margin_top,
+        config.margin_right,
+        config.margin_bottom,
+        config.margin_left,
+    );
     layer_surface.set_keyboard_interactivity(
         &mut conn,
         zwlr_layer_surface_v1::KeyboardInteractivity::Exclusive,

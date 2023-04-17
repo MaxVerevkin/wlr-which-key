@@ -25,7 +25,12 @@ pub struct Config {
     pub color: Color,
     #[default(Color::from_rgba_hex(0x8ec07cff))]
     pub border: Color,
+
     pub anchor: ConfigAnchor,
+    pub margin_top: i32,
+    pub margin_right: i32,
+    pub margin_bottom: i32,
+    pub margin_left: i32,
 
     #[default(Font::new("monospace 10"))]
     pub font: Font,
