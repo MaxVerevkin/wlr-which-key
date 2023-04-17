@@ -49,6 +49,7 @@ impl ComputedText {
         if std::env::var("WLR_WHICH_KEY_LAYOUT_DEBUG").as_deref() == Ok("1") {
             Color::from_rgba(255, 0, 0, 255).apply(context);
             context.rectangle(options.x, options.y, self.width, options.height);
+            context.set_line_width(1.0);
             context.stroke().unwrap();
         }
 
