@@ -19,8 +19,11 @@ Config file: `$XDG_CONFIG_HOME/wlr-which-key/config.yaml` or `~/.config/wlr-whic
 Example config:
 
 ```yaml
-font: JetBrainsMono Nerd Font
+font: JetBrainsMono Nerd Font 12
 background: "#282828d0"
+anchor: bottom-right
+margin_right: 30
+margin_bottom: 30
 
 menu: 
   "w":
