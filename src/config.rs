@@ -34,6 +34,8 @@ pub struct Config {
 
     #[default(Font::new("monospace 10"))]
     pub font: Font,
+    #[default(" ➜ ".into())]
+    pub separator: String,
     #[default(4.0)]
     pub border_width: f64,
     #[default(20.0)]

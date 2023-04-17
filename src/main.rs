@@ -43,7 +43,7 @@ fn main() -> anyhow::Result<()> {
     let seats = Seats::bind(&mut conn, &globals);
     let shm_alloc = ShmAlloc::new(wl_shm);
 
-    let menu = menu::Menu::new(&config.font, &config.menu);
+    let menu = menu::Menu::new(&config);
 
     let width = (menu.width() + (config.padding() + config.border_width) * 2.0) as u32;
     let height = (menu.height() + (config.padding() + config.border_width) * 2.0) as u32;

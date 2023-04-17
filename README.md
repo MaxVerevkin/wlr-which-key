@@ -24,6 +24,7 @@ background: "#282828d0"
 anchor: bottom-right
 margin_right: 30
 margin_bottom: 30
+separator: " ➜ "
 
 menu: 
   "w":

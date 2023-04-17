@@ -1,16 +1,14 @@
-use crate::config;
+use crate::config::{self, Config};
 use crate::text::{self, ComputedText};
 use anyhow::Result;
 use pangocairo::{cairo, pango};
-
-const ARROW: &str = " ➜ ";
 
 pub struct Menu {
     key_col_width: f64,
     val_col_width: f64,
     item_height: f64,
     items: Vec<MenuItem>,
-    arrow: ComputedText,
+    separator: ComputedText,
 }
 
 struct MenuItem {
@@ -26,19 +24,20 @@ pub enum Action {
 }
 
 impl Menu {
-    pub fn new(font: &pango::FontDescription, entries: &config::Entries) -> Self {
+    pub fn new(config: &Config) -> Self {
         let context = pango::Context::new();
         let fontmap = pangocairo::FontMap::new();
         context.set_font_map(Some(&fontmap));
-        Self::new_with_centext(font, &context, entries)
+        Self::new_with_centext(&config.font, &context, &config.menu, config)
     }
 
     pub fn new_with_centext(
         font: &pango::FontDescription,
         context: &pango::Context,
         entries: &config::Entries,
+        config: &Config,
     ) -> Self {
-        let arrow = ComputedText::new(ARROW, context, font);
+        let separator = ComputedText::new(&config.separator, context, font);
 
         let mut items = Vec::new();
         for (key, entry) in &entries.0 {
@@ -56,7 +55,9 @@ impl Menu {
                     desc,
                 } => {
                     items.push(MenuItem {
-                        action: Action::Submenu(Self::new_with_centext(font, context, entries)),
+                        action: Action::Submenu(Self::new_with_centext(
+                            font, context, entries, config,
+                        )),
                         key_comp: ComputedText::new(key, context, font),
                         val_comp: ComputedText::new(&format!("+{desc}"), context, font),
                         key_str: key.into(),
@@ -65,7 +66,7 @@ impl Menu {
             }
         }
 
-        let mut item_height = arrow.height;
+        let mut item_height = separator.height;
         for item in &items {
             if item.key_comp.height > item_height {
                 item_height = item.key_comp.height;
@@ -90,13 +91,13 @@ impl Menu {
             key_col_width,
             val_col_width,
             item_height,
-            arrow,
+            separator,
             items,
         }
     }
 
     pub fn width(&self) -> f64 {
-        self.key_col_width + self.val_col_width + self.arrow.width
+        self.key_col_width + self.val_col_width + self.separator.width
     }
 
     pub fn height(&self) -> f64 {
@@ -122,7 +123,7 @@ impl Menu {
                     height: self.item_height,
                 },
             )?;
-            self.arrow.render(
+            self.separator.render(
                 cairo_ctx,
                 text::RenderOptions {
                     x: dx + self.key_col_width,
@@ -134,7 +135,7 @@ impl Menu {
             comp.val_comp.render(
                 cairo_ctx,
                 text::RenderOptions {
-                    x: dx + self.key_col_width + self.arrow.width,
+                    x: dx + self.key_col_width + self.separator.width,
                     y: dy + self.item_height * (i as f64),
                     fg_color,
                     height: self.item_height,
