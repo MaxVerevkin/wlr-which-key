@@ -45,8 +45,8 @@ fn main() -> anyhow::Result<()> {
 
     let menu = menu::Menu::new(&config.font, &config.menu);
 
-    let width = (menu.width() + config.corner_r * 2.0) as u32;
-    let height = (menu.height() + config.corner_r * 2.0) as u32;
+    let width = (menu.width() + (config.padding() + config.border_width) * 2.0) as u32;
+    let height = (menu.height() + (config.padding() + config.border_width) * 2.0) as u32;
 
     let wl_surface = wl_compositor.create_surface_with_cb(&mut conn, wl_surface_cb);
 
@@ -209,7 +209,14 @@ impl State {
         cairo_ctx.stroke().unwrap();
 
         // draw our menu
-        self.menu.render(&self.config, &cairo_ctx).unwrap();
+        self.menu
+            .render(
+                &self.config,
+                &cairo_ctx,
+                self.config.padding() + self.config.border_width,
+                self.config.padding() + self.config.border_width,
+            )
+            .unwrap();
 
         // Damage the entire window
         self.wl_surface.damage_buffer(
@@ -294,8 +301,12 @@ impl KeyboardHandler for State {
                     self.exit = true;
                 }
                 menu::Action::Submenu(new_menu) => {
-                    self.width = (new_menu.width() + self.config.corner_r * 2.0) as u32;
-                    self.height = (new_menu.height() + self.config.corner_r * 2.0) as u32;
+                    self.width = (new_menu.width()
+                        + (self.config.padding() + self.config.border_width) * 2.0)
+                        as u32;
+                    self.height = (new_menu.height()
+                        + (self.config.padding() + self.config.border_width) * 2.0)
+                        as u32;
                     self.menu = new_menu;
 
                     self.layer_surface.set_size(conn, self.width, self.height);

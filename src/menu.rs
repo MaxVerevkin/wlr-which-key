@@ -103,15 +103,21 @@ impl Menu {
         self.item_height * self.items.len() as f64
     }
 
-    pub fn render(&self, config: &config::Config, cairo_ctx: &cairo::Context) -> Result<()> {
+    pub fn render(
+        &self,
+        config: &config::Config,
+        cairo_ctx: &cairo::Context,
+        dx: f64,
+        dy: f64,
+    ) -> Result<()> {
         let fg_color = config.color;
 
         for (i, comp) in self.items.iter().enumerate() {
             comp.key_comp.render(
                 cairo_ctx,
                 text::RenderOptions {
-                    x: config.corner_r + self.key_col_width - comp.key_comp.width,
-                    y: config.corner_r + self.item_height * (i as f64),
+                    x: dx + self.key_col_width - comp.key_comp.width,
+                    y: dy + self.item_height * (i as f64),
                     fg_color,
                     height: self.item_height,
                 },
@@ -119,8 +125,8 @@ impl Menu {
             self.arrow.render(
                 cairo_ctx,
                 text::RenderOptions {
-                    x: config.corner_r + self.key_col_width,
-                    y: config.corner_r + self.item_height * (i as f64),
+                    x: dx + self.key_col_width,
+                    y: dy + self.item_height * (i as f64),
                     fg_color,
                     height: self.item_height,
                 },
@@ -128,8 +134,8 @@ impl Menu {
             comp.val_comp.render(
                 cairo_ctx,
                 text::RenderOptions {
-                    x: config.corner_r + self.key_col_width + self.arrow.width,
-                    y: config.corner_r + self.item_height * (i as f64),
+                    x: dx + self.key_col_width + self.arrow.width,
+                    y: dy + self.item_height * (i as f64),
                     fg_color,
                     height: self.item_height,
                 },

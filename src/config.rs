@@ -38,6 +38,8 @@ pub struct Config {
     pub border_width: f64,
     #[default(20.0)]
     pub corner_r: f64,
+    // defaults to `corner_r`
+    pub padding: Option<f64>,
 
     pub menu: Entries,
 }
@@ -70,6 +72,10 @@ impl Config {
                 Self::default()
             }
         })
+    }
+
+    pub fn padding(&self) -> f64 {
+        self.padding.unwrap_or(self.corner_r)
     }
 }
 
