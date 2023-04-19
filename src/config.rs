@@ -11,10 +11,11 @@ use smart_default::SmartDefault;
 use wayrs_protocols::wlr_layer_shell_unstable_v1::zwlr_layer_surface_v1::Anchor;
 
 use crate::color::Color;
+use crate::key::Key;
 
 #[derive(Deserialize, Default)]
 #[serde(transparent)]
-pub struct Entries(pub IndexMap<String, Entry>);
+pub struct Entries(pub IndexMap<Key, Entry>);
 
 #[derive(Deserialize, SmartDefault)]
 #[serde(deny_unknown_fields, default)]

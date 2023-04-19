@@ -1,7 +1,10 @@
-use crate::config::{self, Config};
-use crate::text::{self, ComputedText};
 use anyhow::Result;
 use pangocairo::{cairo, pango};
+use wayrs_utils::keyboard::xkb;
+
+use crate::config::{self, Config};
+use crate::key::Key;
+use crate::text::{self, ComputedText};
 
 pub struct Menu {
     key_col_width: f64,
@@ -15,7 +18,7 @@ struct MenuItem {
     action: Action,
     key_comp: ComputedText,
     val_comp: ComputedText,
-    key_str: String,
+    key: Key,
 }
 
 pub enum Action {
@@ -45,9 +48,9 @@ impl Menu {
                 config::Entry::Cmd { cmd, desc } => {
                     items.push(MenuItem {
                         action: Action::Exec(cmd.into()),
-                        key_comp: ComputedText::new(key, context, font),
+                        key_comp: ComputedText::new(key.repr(), context, font),
                         val_comp: ComputedText::new(desc, context, font),
-                        key_str: key.into(),
+                        key: key.clone(),
                     });
                 }
                 config::Entry::Recursive {
@@ -58,9 +61,9 @@ impl Menu {
                         action: Action::Submenu(Self::new_with_centext(
                             font, context, entries, config,
                         )),
-                        key_comp: ComputedText::new(key, context, font),
+                        key_comp: ComputedText::new(key.repr(), context, font),
                         val_comp: ComputedText::new(&format!("+{desc}"), context, font),
-                        key_str: key.into(),
+                        key: key.clone(),
                     });
                 }
             }
@@ -146,8 +149,19 @@ impl Menu {
         Ok(())
     }
 
-    pub fn get_action(&mut self, key: &str) -> Option<Action> {
-        let i = self.items.iter().position(|i| i.key_str == key)?;
-        Some(self.items.remove(i).action)
+    pub fn get_action(
+        &mut self,
+        xkb: &xkb::State,
+        sym: xkb::Keysym,
+        keycode: xkb::Keycode,
+    ) -> Option<Action> {
+        let utf8 = xkb.key_get_utf8(keycode);
+
+        let i = self.items.iter().position(|i| match &i.key {
+            Key::Char(c) => *c == utf8,
+            Key::Keysym { keysym, .. } => *keysym == sym,
+        })?;
+
+        Some(self.items.swap_remove(i).action)
     }
 }

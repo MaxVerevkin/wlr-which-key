@@ -3,6 +3,7 @@ extern crate log;
 
 mod color;
 mod config;
+mod key;
 mod menu;
 mod text;
 
@@ -271,7 +272,9 @@ impl KeyboardHandler for State {
     }
 
     fn key_presed(&mut self, conn: &mut Connection<Self>, event: KeyboardEvent) {
-        if event.xkb_state.key_get_one_sym(event.keycode) == xkb::keysyms::KEY_Escape {
+        let keysym = event.xkb_state.key_get_one_sym(event.keycode);
+
+        if keysym == xkb::keysyms::KEY_Escape {
             self.exit = true;
             conn.break_dispatch_loop();
             return;
@@ -279,7 +282,7 @@ impl KeyboardHandler for State {
 
         if let Some(action) = self
             .menu
-            .get_action(&event.xkb_state.key_get_utf8(event.keycode))
+            .get_action(&event.xkb_state, keysym, event.keycode)
         {
             match action {
                 menu::Action::Exec(cmd) => {
