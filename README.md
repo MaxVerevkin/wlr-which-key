@@ -19,12 +19,23 @@ Config file: `$XDG_CONFIG_HOME/wlr-which-key/config.yaml` or `~/.config/wlr-whic
 Example config:
 
 ```yaml
+# Theming
 font: JetBrainsMono Nerd Font 12
 background: "#282828d0"
-anchor: bottom-right
-margin_right: 30
-margin_bottom: 30
+color: "#fbf1c7"
+border: "#8ec07c"
 separator: " ➜ "
+border_width: 2
+corner_r: 10
+padding: 15 # Defaults to corner_r
+
+# Anchor and margin
+anchor: center # One of center, left, right, top, bottom, bottom-left, top-left, etc.
+# Only relevant when anchor is not center
+margin_right: 0
+margin_bottom: 0
+margin_left: 0
+margin_top: 0
 
 menu: 
   "w":
@@ -57,6 +68,6 @@ menu:
           "4": { desc: Set Scale to 1.3, cmd: wlr-randr --output eDP-1 --scale 1.3 }
 ```
 
-![image](https://user-images.githubusercontent.com/34583604/229412213-221dd462-e72a-43da-8066-1e81d04b3b48.png)
+![image](https://user-images.githubusercontent.com/34583604/233025292-af0d5798-1854-4809-b08f-2e8f1a65b3ce.png)
 
-![image](https://user-images.githubusercontent.com/34583604/229412221-33e347d5-d86a-49be-96bd-0fe669c4b871.png)
+![image](https://user-images.githubusercontent.com/34583604/233025368-e59a386a-6a52-4168-a6e3-5102ea6329cf.png)
