@@ -54,7 +54,7 @@ fn main() -> anyhow::Result<()> {
     let layer_surface = wlr_layer_shell.get_layer_surface_with_cb(
         &mut conn,
         wl_surface,
-        WlOutput::null(),
+        None,
         zwlr_layer_shell_v1::Layer::Overlay,
         wayrs_client::cstr!("wlr_which_key").into(),
         layer_surface_cb,
@@ -229,7 +229,8 @@ impl State {
         );
 
         // Attach and commit to present.
-        self.wl_surface.attach(conn, buffer.into_wl_buffer(), 0, 0);
+        self.wl_surface
+            .attach(conn, Some(buffer.into_wl_buffer()), 0, 0);
         self.wl_surface.commit(conn);
     }
 

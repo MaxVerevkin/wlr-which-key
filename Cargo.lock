@@ -690,13 +690,13 @@ checksum = "a507befe795404456341dfab10cef66ead4c041f62b8b11bbb92bffe5d0953e0"
 
 [[package]]
 name = "smart-default"
-version = "0.6.0"
+version = "0.7.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "133659a15339456eeeb07572eb02a91c91e9815e9cbc89566944d2c8d3efdbf6"
+checksum = "0eb01866308440fc64d6c44d9e86c5cc17adfe33c4d6eed55da9145044d0ffc1"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 1.0.109",
+ "syn 2.0.13",
 ]
 
 [[package]]
@@ -841,9 +841,9 @@ checksum = "9c8d87e72b64a3b4db28d11ce29237c246188f4f51057d65a7eab63b7987e423"
 
 [[package]]
 name = "wayrs-client"
-version = "0.8.0"
+version = "0.10.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "098a127d8e6d3f494be68f1b9776d62c8f1bb3a8c5d156ba9a7f46352f994ce9"
+checksum = "6affc1438c9762f6f52bd6162b8d71bc7bfdc522a123aaa2e6c194a30c9e5d91"
 dependencies = [
  "nix",
  "thiserror",
@@ -852,18 +852,18 @@ dependencies = [
 
 [[package]]
 name = "wayrs-protocols"
-version = "0.8.0"
+version = "0.10.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "be5ff47d73ff0b4a6988e20d6275be363d04975b7f4149d7092ad38128d1afb8"
+checksum = "9923e775b301381afdd0a2f24991fc56bcb7cbd7378805ed37ec244dedfe8531"
 dependencies = [
  "wayrs-client",
 ]
 
 [[package]]
 name = "wayrs-scanner"
-version = "0.8.0"
+version = "0.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "967e9f2382b08f553ebf6a7b639b72fb18c11f45d821a943dcdaabad0cb6c190"
+checksum = "b66f2d9f749863856126fd50440d008bf62031243665df9d80871039316bde61"
 dependencies = [
  "convert_case",
  "proc-macro2",
@@ -874,9 +874,9 @@ dependencies = [
 
 [[package]]
 name = "wayrs-utils"
-version = "0.4.0-beta.5"
+version = "0.4.0-beta.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "217ea9444c2b07e91464be1d6bc5babddd9436d94bc173d78e05452f55b74dd9"
+checksum = "53da39108877bc36d9d25e5d442565b06ce42f85f0bbc9c0475cc2713448f0ed"
 dependencies = [
  "memmap2",
  "shmemfdrs",

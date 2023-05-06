@@ -18,10 +18,10 @@ dirs-next = "2"
 indexmap = { version = "1.9", features = ["serde"] }
 serde = { version = "1", features = ["derive"] }
 serde_yaml = "0.9"
-wayrs-client = "0.8"
-wayrs-protocols = { version = "0.8", features = ["wlr-layer-shell-unstable-v1"] }
-wayrs-utils = { version = "0.4.0-beta.5", features = ["shm_alloc", "seats", "keyboard"] }
-smart-default = "0.6.0"
+wayrs-client = "0.10"
+wayrs-protocols = { version = "0.10", features = ["wlr-layer-shell-unstable-v1"] }
+wayrs-utils = { version = "0.4.0-beta.7", features = ["shm_alloc", "seats", "keyboard"] }
+smart-default = "0.7.0"
 
 [profile.release]
 lto = "thin"
