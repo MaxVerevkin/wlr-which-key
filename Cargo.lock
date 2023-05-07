@@ -841,9 +841,9 @@ checksum = "9c8d87e72b64a3b4db28d11ce29237c246188f4f51057d65a7eab63b7987e423"
 
 [[package]]
 name = "wayrs-client"
-version = "0.10.1"
+version = "0.10.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6affc1438c9762f6f52bd6162b8d71bc7bfdc522a123aaa2e6c194a30c9e5d91"
+checksum = "6df29eb1fab7b25c629f5e7c818e4509643102e1e909bdfcf4b342e0056ef552"
 dependencies = [
  "nix",
  "thiserror",
