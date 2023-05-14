@@ -4,12 +4,8 @@ Keymap manager for wlroots-based compositors. Inspired by [which-key.nvim](https
 
 ## Installation
 
-### From Source
-
-```
-git clone https://github.com/MaxVerevkin/wlr-which-key
-cd wlr-which-key
-cargo install --path . --locked
+```sh
+cargo install wlr-which-key --locked
 ```
 
 ## Configuration
