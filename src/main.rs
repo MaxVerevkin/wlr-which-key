@@ -37,12 +37,11 @@ fn main() -> anyhow::Result<()> {
     let globals = conn.blocking_collect_initial_globals()?;
     conn.add_registry_cb(wl_registry_cb);
 
-    let wl_shm: WlShm = globals.bind(&mut conn, 1..=1)?;
     let wl_compositor: WlCompositor = globals.bind(&mut conn, 4..=4)?;
     let wlr_layer_shell: ZwlrLayerShellV1 = globals.bind(&mut conn, 2..=2)?;
 
     let seats = Seats::bind(&mut conn, &globals);
-    let shm_alloc = ShmAlloc::new(wl_shm);
+    let shm_alloc = ShmAlloc::bind(&mut conn, &globals)?;
 
     let menu = menu::Menu::new(&config);
 
