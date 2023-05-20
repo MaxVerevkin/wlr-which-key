@@ -13,6 +13,7 @@ use std::io;
 use std::os::unix::process::CommandExt;
 use std::process::{Command, Stdio};
 
+use clap::Parser;
 use pangocairo::cairo;
 
 use wayrs_client::connection::Connection;
@@ -25,10 +26,22 @@ use wayrs_utils::keyboard::{xkb, Keyboard, KeyboardEvent, KeyboardHandler};
 use wayrs_utils::seats::{SeatHandler, Seats};
 use wayrs_utils::shm_alloc::{BufferSpec, ShmAlloc};
 
+#[derive(Debug, Parser)]
+#[command(author, version, about)]
+struct Args {
+    /// The name of the config file to use.
+    ///
+    /// For example, to use `~/.config/wlr-which-key/print-srceen.yaml`, set this to
+    /// `print-srceen`.
+    config: Option<String>,
+}
+
 fn main() -> anyhow::Result<()> {
     env_logger::init();
 
-    let config = config::Config::new()?;
+    let args = Args::parse();
+
+    let config = config::Config::new(args.config.as_deref().unwrap_or("config"))?;
     if config.menu.0.is_empty() {
         anyhow::bail!("No key mappings defined");
     }

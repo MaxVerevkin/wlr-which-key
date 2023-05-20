@@ -55,11 +55,12 @@ pub enum Entry {
 }
 
 impl Config {
-    pub fn new() -> Result<Self> {
+    pub fn new(name: &str) -> Result<Self> {
         Ok(match config_dir() {
             Some(mut config_path) => {
                 config_path.push("wlr-which-key");
-                config_path.push("config.yaml");
+                config_path.push(name);
+                config_path.set_extension("yaml");
                 if config_path.exists() {
                     let config =
                         read_to_string(config_path).context("Failed to read configuration")?;
