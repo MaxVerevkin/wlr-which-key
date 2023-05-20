@@ -28,8 +28,11 @@ use wayrs_utils::shm_alloc::{BufferSpec, ShmAlloc};
 struct Args {
     /// The name of the config file to use.
     ///
-    /// For example, to use `~/.config/wlr-which-key/print-srceen.yaml`, set this to
-    /// `print-srceen`. An absolute path can be used too, extension is optional.
+    /// By default, $XDG_CONFIG_HOME/wlr-which-key/config.yaml or
+    /// ~/.config/wlr-which-key/config.yaml is used.
+    ///
+    /// For example, to use ~/.config/wlr-which-key/print-srceen.yaml, set this to
+    /// "print-srceen". An absolute path can be used too, extension is optional.
     config: Option<String>,
 }
 

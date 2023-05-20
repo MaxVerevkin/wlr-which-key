@@ -10,7 +10,7 @@ cargo install wlr-which-key --locked
 
 ## Configuration
 
-Config file: `$XDG_CONFIG_HOME/wlr-which-key/config.yaml` or `~/.config/wlr-which-key/config.yaml`.
+Default config file: `$XDG_CONFIG_HOME/wlr-which-key/config.yaml` or `~/.config/wlr-which-key/config.yaml`. Run `wlr-which-key --help` for more info.
 
 Example config:
 
