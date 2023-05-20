@@ -9,8 +9,6 @@ license = "GPL-3.0-only"
 authors = ["MaxVerevkin <maxxverr@gmail.com>"]
 
 [dependencies]
-log = "0.4"
-env_logger = "0.10"
 pangocairo = "0.17"
 anyhow = "1"
 libc = "0.2"

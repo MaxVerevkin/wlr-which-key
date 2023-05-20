@@ -1,6 +1,3 @@
-#[macro_use]
-extern crate log;
-
 mod color;
 mod config;
 mod key;
@@ -37,8 +34,6 @@ struct Args {
 }
 
 fn main() -> anyhow::Result<()> {
-    env_logger::init();
-
     let args = Args::parse();
 
     let config = config::Config::new(args.config.as_deref().unwrap_or("config"))?;
