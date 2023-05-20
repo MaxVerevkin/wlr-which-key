@@ -2,7 +2,7 @@ use std::fmt;
 use std::fs::read_to_string;
 use std::ops::Deref;
 
-use anyhow::{Context, Result};
+use anyhow::{bail, Context, Result};
 use dirs_next::config_dir;
 use indexmap::IndexMap;
 use pangocairo::pango::FontDescription;
@@ -56,26 +56,17 @@ pub enum Entry {
 
 impl Config {
     pub fn new(name: &str) -> Result<Self> {
-        Ok(match config_dir() {
-            Some(mut config_path) => {
-                config_path.push("wlr-which-key");
-                config_path.push(name);
-                config_path.set_extension("yaml");
-                if config_path.exists() {
-                    let config =
-                        read_to_string(config_path).context("Failed to read configuration")?;
-                    serde_yaml::from_str(&config).context("Failed to deserialize configuration")?
-                } else {
-                    info!("Using default configuration");
-                    Self::default()
-                }
-            }
-            None => {
-                warn!("Could not find the configuration path");
-                info!("Using default configuration");
-                Self::default()
-            }
-        })
+        let mut config_path = config_dir().context("Cound not find config directory")?;
+        config_path.push("wlr-which-key");
+        config_path.push(name);
+        config_path.set_extension("yaml");
+
+        if !config_path.exists() {
+            bail!("config file not found: {}", config_path.display());
+        }
+
+        let config = read_to_string(config_path).context("Failed to read configuration")?;
+        serde_yaml::from_str(&config).context("Failed to deserialize configuration")
     }
 
     pub fn padding(&self) -> f64 {
