@@ -29,7 +29,7 @@ struct Args {
     /// The name of the config file to use.
     ///
     /// For example, to use `~/.config/wlr-which-key/print-srceen.yaml`, set this to
-    /// `print-srceen`.
+    /// `print-srceen`. An absolute path can be used too, extension is optional.
     config: Option<String>,
 }
 
