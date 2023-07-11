@@ -13,7 +13,7 @@ pangocairo = "0.17"
 anyhow = "1"
 libc = "0.2"
 dirs-next = "2"
-indexmap = { version = "1.9", features = ["serde"] }
+indexmap = { version = "2.0", features = ["serde"] }
 serde = { version = "1", features = ["derive"] }
 serde_yaml = "0.9"
 wayrs-client = "0.10"
