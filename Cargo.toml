@@ -22,4 +22,4 @@ smart-default = "0.7.0"
 clap = { version = "4.3.0", default-features = false, features = ["std", "derive", "help", "usage"] }
 
 [profile.release]
-lto = "thin"
+lto = "fat"
