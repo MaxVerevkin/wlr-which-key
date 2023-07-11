@@ -1,9 +1,10 @@
+use std::env;
 use std::fmt;
 use std::fs::read_to_string;
 use std::ops::Deref;
+use std::path::PathBuf;
 
 use anyhow::{bail, Context, Result};
-use dirs_next::config_dir;
 use indexmap::IndexMap;
 use pangocairo::pango::FontDescription;
 use serde::{de, Deserialize};
@@ -72,6 +73,12 @@ impl Config {
     pub fn padding(&self) -> f64 {
         self.padding.unwrap_or(self.corner_r)
     }
+}
+
+fn config_dir() -> Option<PathBuf> {
+    env::var_os("XDG_CONFIG_HOME")
+        .map(PathBuf::from)
+        .or_else(|| Some(PathBuf::from(env::var_os("HOME")?).join(".config")))
 }
 
 pub struct Font(pub FontDescription);

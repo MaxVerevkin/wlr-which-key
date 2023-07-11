@@ -12,7 +12,6 @@ authors = ["MaxVerevkin <maxxverr@gmail.com>"]
 pangocairo = "0.17"
 anyhow = "1"
 libc = "0.2"
-dirs-next = "2"
 indexmap = { version = "2.0", features = ["serde"] }
 serde = { version = "1", features = ["derive"] }
 serde_yaml = "0.9"
