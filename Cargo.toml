@@ -15,9 +15,9 @@ libc = "0.2"
 indexmap = { version = "2.0", features = ["serde"] }
 serde = { version = "1", features = ["derive"] }
 serde_yaml = "0.9"
-wayrs-client = "0.10"
-wayrs-protocols = { version = "0.10", features = ["wlr-layer-shell-unstable-v1"] }
-wayrs-utils = { version = "0.6.0", features = ["shm_alloc", "seats", "keyboard"] }
+wayrs-client = "0.11"
+wayrs-protocols = { version = "0.11", features = ["wlr-layer-shell-unstable-v1"] }
+wayrs-utils = { version = "0.7", features = ["shm_alloc", "seats", "keyboard"] }
 smart-default = "0.7.0"
 clap = { version = "4.3.0", default-features = false, features = ["std", "derive", "help", "usage"] }
 

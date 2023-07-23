@@ -13,11 +13,11 @@ use std::process::{Command, Stdio};
 use clap::Parser;
 use pangocairo::cairo;
 
-use wayrs_client::connection::Connection;
+use wayrs_client::global::*;
 use wayrs_client::object::ObjectId;
 use wayrs_client::protocol::*;
 use wayrs_client::proxy::Proxy;
-use wayrs_client::{global::*, IoMode};
+use wayrs_client::{Connection, IoMode};
 use wayrs_protocols::wlr_layer_shell_unstable_v1::*;
 use wayrs_utils::keyboard::{xkb, Keyboard, KeyboardEvent, KeyboardHandler};
 use wayrs_utils::seats::{SeatHandler, Seats};
@@ -44,8 +44,7 @@ fn main() -> anyhow::Result<()> {
         anyhow::bail!("No key mappings defined");
     }
 
-    let mut conn = Connection::connect()?;
-    let globals = conn.blocking_collect_initial_globals()?;
+    let (mut conn, globals) = Connection::connect_and_collect_globals()?;
     conn.add_registry_cb(wl_registry_cb);
 
     let wl_compositor: WlCompositor = globals.bind(&mut conn, 4..=4)?;
