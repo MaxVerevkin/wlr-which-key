@@ -4,6 +4,10 @@ Keymap manager for wlroots-based compositors. Inspired by [which-key.nvim](https
 
 ## Installation
 
+[![Packaging status](https://repology.org/badge/vertical-allrepos/wlr-which-key.svg)](https://repology.org/project/wlr-which-key/versions)
+
+### From Source
+
 ```sh
 cargo install wlr-which-key --locked
 ```
