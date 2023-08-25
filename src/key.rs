@@ -24,7 +24,9 @@ impl FromStr for Key {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let mut chars = s.chars();
-        let Some(_first_char) = chars.next() else { return Err(()) };
+        let Some(_first_char) = chars.next() else {
+            return Err(());
+        };
 
         if chars.next().is_none() {
             return Ok(Self::Char(s.to_owned()));
