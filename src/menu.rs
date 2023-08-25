@@ -1,3 +1,5 @@
+use std::sync::Mutex;
+
 use anyhow::Result;
 use pangocairo::{cairo, pango};
 use wayrs_utils::keyboard::xkb;
@@ -12,6 +14,7 @@ pub struct Menu {
     item_height: f64,
     items: Vec<MenuItem>,
     separator: ComputedText,
+    parent: Mutex<Option<&'static Self>>,
 }
 
 struct MenuItem {
@@ -21,25 +24,26 @@ struct MenuItem {
     key: Key,
 }
 
+#[derive(Clone)]
 pub enum Action {
     Exec(String),
-    Submenu(Menu),
+    Submenu(&'static Menu),
 }
 
 impl Menu {
-    pub fn new(config: &Config) -> Self {
+    pub fn new(config: &Config) -> &'static Self {
         let context = pango::Context::new();
         let fontmap = pangocairo::FontMap::new();
         context.set_font_map(Some(&fontmap));
-        Self::new_with_centext(&config.font, &context, &config.menu, config)
+        Self::new_with_context(&config.font, &context, &config.menu, config)
     }
 
-    pub fn new_with_centext(
+    pub fn new_with_context(
         font: &pango::FontDescription,
         context: &pango::Context,
         entries: &config::Entries,
         config: &Config,
-    ) -> Self {
+    ) -> &'static Self {
         let separator = ComputedText::new(&config.separator, context, font);
 
         let mut items = Vec::new();
@@ -58,7 +62,7 @@ impl Menu {
                     desc,
                 } => {
                     items.push(MenuItem {
-                        action: Action::Submenu(Self::new_with_centext(
+                        action: Action::Submenu(Self::new_with_context(
                             font, context, entries, config,
                         )),
                         key_comp: ComputedText::new(key.repr(), context, font),
@@ -90,13 +94,24 @@ impl Menu {
             .max_by(|a, b| a.total_cmp(b))
             .unwrap();
 
-        Self {
+        // Leaking is okay in the scope of this program. The enire menu must live for the lifetime
+        // of the application and there are cyclic references.
+        let this = Box::leak(Box::new(Self {
             key_col_width,
             val_col_width,
             item_height,
             separator,
             items,
+            parent: Mutex::new(None),
+        }));
+
+        for item in &this.items {
+            if let Action::Submenu(submenu) = &item.action {
+                *submenu.parent.lock().unwrap() = Some(this);
+            }
         }
+
+        this
     }
 
     pub fn width(&self) -> f64 {
@@ -150,18 +165,29 @@ impl Menu {
     }
 
     pub fn get_action(
-        &mut self,
+        &self,
         xkb: &xkb::State,
         sym: xkb::Keysym,
         keycode: xkb::Keycode,
     ) -> Option<Action> {
         let utf8 = xkb.key_get_utf8(keycode);
 
-        let i = self.items.iter().position(|i| match &i.key {
+        let item_i = self.items.iter().position(|i| match &i.key {
             Key::Char(c) => *c == utf8,
             Key::Keysym { keysym, .. } => *keysym == sym,
-        })?;
+        });
 
-        Some(self.items.swap_remove(i).action)
+        if let Some(item_i) = item_i {
+            return Some(self.items[item_i].action.clone());
+        }
+
+        let keysym = xkb.key_get_one_sym(keycode);
+        if keysym == xkb::keysyms::KEY_BackSpace {
+            if let Some(parent) = *self.parent.lock().unwrap() {
+                return Some(Action::Submenu(parent));
+            }
+        }
+
+        None
     }
 }

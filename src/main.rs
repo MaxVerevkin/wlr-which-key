@@ -47,8 +47,8 @@ fn main() -> anyhow::Result<()> {
     let (mut conn, globals) = Connection::connect_and_collect_globals()?;
     conn.add_registry_cb(wl_registry_cb);
 
-    let wl_compositor: WlCompositor = globals.bind(&mut conn, 4..=4)?;
-    let wlr_layer_shell: ZwlrLayerShellV1 = globals.bind(&mut conn, 2..=2)?;
+    let wl_compositor: WlCompositor = globals.bind(&mut conn, 4)?;
+    let wlr_layer_shell: ZwlrLayerShellV1 = globals.bind(&mut conn, 2)?;
 
     let seats = Seats::bind(&mut conn, &globals);
     let shm_alloc = ShmAlloc::bind(&mut conn, &globals)?;
@@ -127,7 +127,7 @@ struct State {
     configured: bool,
     width: u32,
     height: u32,
-    menu: menu::Menu,
+    menu: &'static menu::Menu,
     config: config::Config,
 }
 
