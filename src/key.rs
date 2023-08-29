@@ -34,7 +34,7 @@ impl FromStr for Key {
 
         let keysym = xkb::keysym_from_name(s, xkb::KEYSYM_NO_FLAGS);
 
-        if keysym == xkb::KEY_NoSymbol {
+        if keysym.raw() == xkb::keysyms::KEY_NoSymbol {
             Err(())
         } else {
             Ok(Self::Keysym {

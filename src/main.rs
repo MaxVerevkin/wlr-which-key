@@ -13,10 +13,10 @@ use std::process::{Command, Stdio};
 use clap::Parser;
 use pangocairo::cairo;
 
-use wayrs_client::global::*;
 use wayrs_client::object::ObjectId;
 use wayrs_client::protocol::*;
 use wayrs_client::proxy::Proxy;
+use wayrs_client::{global::*, EventCtx};
 use wayrs_client::{Connection, IoMode};
 use wayrs_protocols::wlr_layer_shell_unstable_v1::*;
 use wayrs_utils::keyboard::{xkb, Keyboard, KeyboardEvent, KeyboardHandler};
@@ -284,7 +284,7 @@ impl KeyboardHandler for State {
     fn key_presed(&mut self, conn: &mut Connection<Self>, event: KeyboardEvent) {
         let keysym = event.xkb_state.key_get_one_sym(event.keycode);
 
-        if keysym == xkb::keysyms::KEY_Escape {
+        if keysym == xkb::Keysym::Escape {
             self.exit = true;
             conn.break_dispatch_loop();
             return;
@@ -348,63 +348,53 @@ fn wl_registry_cb(conn: &mut Connection<State>, state: &mut State, event: &wl_re
     }
 }
 
-fn wl_output_cb(
-    conn: &mut Connection<State>,
-    state: &mut State,
-    output: WlOutput,
-    event: wl_output::Event,
-) {
-    if let wl_output::Event::Scale(scale) = event {
-        let output = state.outputs.iter_mut().find(|o| o.wl == output).unwrap();
+fn wl_output_cb(ctx: EventCtx<State, WlOutput>) {
+    if let wl_output::Event::Scale(scale) = ctx.event {
+        let output = ctx
+            .state
+            .outputs
+            .iter_mut()
+            .find(|o| o.wl == ctx.proxy)
+            .unwrap();
         let scale: u32 = scale.try_into().unwrap();
         if output.scale != scale {
             output.scale = scale;
-            state.draw(conn);
+            ctx.state.draw(ctx.conn);
         }
     }
 }
 
-fn wl_surface_cb(
-    conn: &mut Connection<State>,
-    state: &mut State,
-    surface: WlSurface,
-    event: wl_surface::Event,
-) {
-    assert_eq!(surface, state.wl_surface);
-    match event {
+fn wl_surface_cb(ctx: EventCtx<State, WlSurface>) {
+    assert_eq!(ctx.proxy, ctx.state.wl_surface);
+    match ctx.event {
         wl_surface::Event::Enter(output) => {
-            state.visible_on_outputs.insert(output);
-            state.draw(conn);
+            ctx.state.visible_on_outputs.insert(output);
+            ctx.state.draw(ctx.conn);
         }
         wl_surface::Event::Leave(output) => {
-            state.visible_on_outputs.remove(&output);
+            ctx.state.visible_on_outputs.remove(&output);
         }
         _ => (),
     }
 }
 
-fn layer_surface_cb(
-    conn: &mut Connection<State>,
-    state: &mut State,
-    surface: ZwlrLayerSurfaceV1,
-    event: zwlr_layer_surface_v1::Event,
-) {
-    assert_eq!(surface, state.layer_surface);
-    match event {
+fn layer_surface_cb(ctx: EventCtx<State, ZwlrLayerSurfaceV1>) {
+    assert_eq!(ctx.proxy, ctx.state.layer_surface);
+    match ctx.event {
         zwlr_layer_surface_v1::Event::Configure(args) => {
             if args.width != 0 {
-                state.width = args.width;
+                ctx.state.width = args.width;
             }
             if args.height != 0 {
-                state.height = args.height;
+                ctx.state.height = args.height;
             }
-            state.configured = true;
-            surface.ack_configure(conn, args.serial);
-            state.draw(conn);
+            ctx.state.configured = true;
+            ctx.proxy.ack_configure(ctx.conn, args.serial);
+            ctx.state.draw(ctx.conn);
         }
         zwlr_layer_surface_v1::Event::Closed => {
-            state.exit = true;
-            conn.break_dispatch_loop();
+            ctx.state.exit = true;
+            ctx.conn.break_dispatch_loop();
         }
         _ => (),
     }

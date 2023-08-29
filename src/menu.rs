@@ -182,7 +182,7 @@ impl Menu {
         }
 
         let keysym = xkb.key_get_one_sym(keycode);
-        if keysym == xkb::keysyms::KEY_BackSpace {
+        if keysym == xkb::Keysym::BackSpace {
             if let Some(parent) = *self.parent.lock().unwrap() {
                 return Some(Action::Submenu(parent));
             }
