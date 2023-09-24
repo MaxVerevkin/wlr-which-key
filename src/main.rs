@@ -127,7 +127,7 @@ struct State {
     configured: bool,
     width: u32,
     height: u32,
-    menu: &'static menu::Menu,
+    menu: menu::Menu,
     config: config::Config,
 }
 
@@ -313,14 +313,15 @@ impl KeyboardHandler for State {
                     proc.spawn().unwrap().wait().unwrap();
                     self.exit = true;
                 }
-                menu::Action::Submenu(new_menu) => {
-                    self.width = (new_menu.width()
+                menu::Action::Submenu(page) => {
+                    self.menu.set_page(page);
+
+                    self.width = (self.menu.width()
                         + (self.config.padding() + self.config.border_width) * 2.0)
                         as u32;
-                    self.height = (new_menu.height()
+                    self.height = (self.menu.height()
                         + (self.config.padding() + self.config.border_width) * 2.0)
                         as u32;
-                    self.menu = new_menu;
 
                     self.layer_surface.set_size(conn, self.width, self.height);
                     self.wl_surface.commit(conn);

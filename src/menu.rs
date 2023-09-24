@@ -1,5 +1,3 @@
-use std::sync::Mutex;
-
 use anyhow::Result;
 use pangocairo::{cairo, pango};
 use wayrs_utils::keyboard::xkb;
@@ -9,12 +7,17 @@ use crate::key::Key;
 use crate::text::{self, ComputedText};
 
 pub struct Menu {
+    pages: Vec<MenuPage>,
+    cur_page: usize,
+    separator: ComputedText,
+}
+
+struct MenuPage {
     key_col_width: f64,
     val_col_width: f64,
     item_height: f64,
     items: Vec<MenuItem>,
-    separator: ComputedText,
-    parent: Mutex<Option<&'static Self>>,
+    parent: Option<usize>,
 }
 
 struct MenuItem {
@@ -27,99 +30,91 @@ struct MenuItem {
 #[derive(Clone)]
 pub enum Action {
     Exec(String),
-    Submenu(&'static Menu),
+    Submenu(usize),
 }
 
 impl Menu {
-    pub fn new(config: &Config) -> &'static Self {
+    pub fn new(config: &Config) -> Self {
         let context = pango::Context::new();
         let fontmap = pangocairo::FontMap::new();
         context.set_font_map(Some(&fontmap));
-        Self::new_with_context(&config.font, &context, &config.menu, config)
+
+        let mut this = Self {
+            pages: Vec::new(),
+            cur_page: 0,
+            separator: ComputedText::new(&config.separator, &context, &config.font),
+        };
+        this.push_page(&context, &config.menu, config, None);
+        this
     }
 
-    pub fn new_with_context(
-        font: &pango::FontDescription,
+    fn push_page(
+        &mut self,
         context: &pango::Context,
         entries: &config::Entries,
         config: &Config,
-    ) -> &'static Self {
-        let separator = ComputedText::new(&config.separator, context, font);
+        parent: Option<usize>,
+    ) -> usize {
+        let cur_page = self.pages.len();
 
-        let mut items = Vec::new();
+        self.pages.push(MenuPage {
+            key_col_width: 0.0,
+            val_col_width: 0.0,
+            item_height: self.separator.height,
+            items: Vec::new(),
+            parent,
+        });
+
         for (key, entry) in &entries.0 {
-            match entry {
-                config::Entry::Cmd { cmd, desc } => {
-                    items.push(MenuItem {
-                        action: Action::Exec(cmd.into()),
-                        key_comp: ComputedText::new(key.repr(), context, font),
-                        val_comp: ComputedText::new(desc, context, font),
-                        key: key.clone(),
-                    });
-                }
+            let item = match entry {
+                config::Entry::Cmd { cmd, desc } => MenuItem {
+                    action: Action::Exec(cmd.into()),
+                    key_comp: ComputedText::new(key.repr(), context, &config.font),
+                    val_comp: ComputedText::new(desc, context, &config.font),
+                    key: key.clone(),
+                },
                 config::Entry::Recursive {
                     submenu: entries,
                     desc,
                 } => {
-                    items.push(MenuItem {
-                        action: Action::Submenu(Self::new_with_context(
-                            font, context, entries, config,
-                        )),
-                        key_comp: ComputedText::new(key.repr(), context, font),
-                        val_comp: ComputedText::new(&format!("+{desc}"), context, font),
+                    let new_page = self.push_page(context, entries, config, Some(cur_page));
+                    MenuItem {
+                        action: Action::Submenu(new_page),
+                        key_comp: ComputedText::new(key.repr(), context, &config.font),
+                        val_comp: ComputedText::new(&format!("+{desc}"), context, &config.font),
                         key: key.clone(),
-                    });
+                    }
                 }
+            };
+
+            if item.key_comp.height > self.pages[cur_page].item_height {
+                self.pages[cur_page].item_height = item.key_comp.height;
             }
+            if item.key_comp.width > self.pages[cur_page].key_col_width {
+                self.pages[cur_page].key_col_width = item.key_comp.width;
+            }
+
+            if item.val_comp.height > self.pages[cur_page].item_height {
+                self.pages[cur_page].item_height = item.val_comp.height;
+            }
+            if item.val_comp.width > self.pages[cur_page].val_col_width {
+                self.pages[cur_page].val_col_width = item.val_comp.width;
+            }
+
+            self.pages[cur_page].items.push(item);
         }
 
-        let mut item_height = separator.height;
-        for item in &items {
-            if item.key_comp.height > item_height {
-                item_height = item.key_comp.height;
-            }
-            if item.val_comp.height > item_height {
-                item_height = item.val_comp.height;
-            }
-        }
-
-        let key_col_width = items
-            .iter()
-            .map(|i| i.key_comp.width)
-            .max_by(|a, b| a.total_cmp(b))
-            .unwrap();
-        let val_col_width = items
-            .iter()
-            .map(|i| i.val_comp.width)
-            .max_by(|a, b| a.total_cmp(b))
-            .unwrap();
-
-        // Leaking is okay in the scope of this program. The enire menu must live for the lifetime
-        // of the application and there are cyclic references.
-        let this = Box::leak(Box::new(Self {
-            key_col_width,
-            val_col_width,
-            item_height,
-            separator,
-            items,
-            parent: Mutex::new(None),
-        }));
-
-        for item in &this.items {
-            if let Action::Submenu(submenu) = &item.action {
-                *submenu.parent.lock().unwrap() = Some(this);
-            }
-        }
-
-        this
+        cur_page
     }
 
     pub fn width(&self) -> f64 {
-        self.key_col_width + self.val_col_width + self.separator.width
+        let page = &self.pages[self.cur_page];
+        page.key_col_width + page.val_col_width + self.separator.width
     }
 
     pub fn height(&self) -> f64 {
-        self.item_height * self.items.len() as f64
+        let page = &self.pages[self.cur_page];
+        page.item_height * page.items.len() as f64
     }
 
     pub fn render(
@@ -129,34 +124,35 @@ impl Menu {
         dx: f64,
         dy: f64,
     ) -> Result<()> {
+        let page = &self.pages[self.cur_page];
         let fg_color = config.color;
 
-        for (i, comp) in self.items.iter().enumerate() {
+        for (i, comp) in page.items.iter().enumerate() {
             comp.key_comp.render(
                 cairo_ctx,
                 text::RenderOptions {
-                    x: dx + self.key_col_width - comp.key_comp.width,
-                    y: dy + self.item_height * (i as f64),
+                    x: dx + page.key_col_width - comp.key_comp.width,
+                    y: dy + page.item_height * (i as f64),
                     fg_color,
-                    height: self.item_height,
+                    height: page.item_height,
                 },
             )?;
             self.separator.render(
                 cairo_ctx,
                 text::RenderOptions {
-                    x: dx + self.key_col_width,
-                    y: dy + self.item_height * (i as f64),
+                    x: dx + page.key_col_width,
+                    y: dy + page.item_height * (i as f64),
                     fg_color,
-                    height: self.item_height,
+                    height: page.item_height,
                 },
             )?;
             comp.val_comp.render(
                 cairo_ctx,
                 text::RenderOptions {
-                    x: dx + self.key_col_width + self.separator.width,
-                    y: dy + self.item_height * (i as f64),
+                    x: dx + page.key_col_width + self.separator.width,
+                    y: dy + page.item_height * (i as f64),
                     fg_color,
-                    height: self.item_height,
+                    height: page.item_height,
                 },
             )?;
         }
@@ -170,24 +166,29 @@ impl Menu {
         sym: xkb::Keysym,
         keycode: xkb::Keycode,
     ) -> Option<Action> {
+        let page = &self.pages[self.cur_page];
         let utf8 = xkb.key_get_utf8(keycode);
 
-        let item_i = self.items.iter().position(|i| match &i.key {
+        let item_i = page.items.iter().position(|i| match &i.key {
             Key::Char(c) => *c == utf8,
             Key::Keysym { keysym, .. } => *keysym == sym,
         });
 
         if let Some(item_i) = item_i {
-            return Some(self.items[item_i].action.clone());
+            return Some(page.items[item_i].action.clone());
         }
 
         let keysym = xkb.key_get_one_sym(keycode);
         if keysym == xkb::Keysym::BackSpace {
-            if let Some(parent) = *self.parent.lock().unwrap() {
+            if let Some(parent) = page.parent {
                 return Some(Action::Submenu(parent));
             }
         }
 
         None
+    }
+
+    pub fn set_page(&mut self, page: usize) {
+        self.cur_page = page;
     }
 }
