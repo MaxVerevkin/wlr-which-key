@@ -1,4 +1,4 @@
-use anyhow::Result;
+use anyhow::{bail, Result};
 use pangocairo::{cairo, pango};
 use wayrs_utils::keyboard::xkb;
 
@@ -34,7 +34,7 @@ pub enum Action {
 }
 
 impl Menu {
-    pub fn new(config: &Config) -> Self {
+    pub fn new(config: &Config) -> Result<Self> {
         let context = pango::Context::new();
         let fontmap = pangocairo::FontMap::new();
         context.set_font_map(Some(&fontmap));
@@ -44,8 +44,10 @@ impl Menu {
             cur_page: 0,
             separator: ComputedText::new(&config.separator, &context, &config.font),
         };
-        this.push_page(&context, &config.menu, config, None);
-        this
+
+        this.push_page(&context, &config.menu, config, None)?;
+
+        Ok(this)
     }
 
     fn push_page(
@@ -54,7 +56,11 @@ impl Menu {
         entries: &config::Entries,
         config: &Config,
         parent: Option<usize>,
-    ) -> usize {
+    ) -> Result<usize> {
+        if entries.0.is_empty() {
+            bail!("Empty menu pages are not allowed");
+        }
+
         let cur_page = self.pages.len();
 
         self.pages.push(MenuPage {
@@ -77,7 +83,7 @@ impl Menu {
                     submenu: entries,
                     desc,
                 } => {
-                    let new_page = self.push_page(context, entries, config, Some(cur_page));
+                    let new_page = self.push_page(context, entries, config, Some(cur_page))?;
                     MenuItem {
                         action: Action::Submenu(new_page),
                         key_comp: ComputedText::new(key.repr(), context, &config.font),
@@ -104,7 +110,7 @@ impl Menu {
             self.pages[cur_page].items.push(item);
         }
 
-        cur_page
+        Ok(cur_page)
     }
 
     pub fn width(&self) -> f64 {

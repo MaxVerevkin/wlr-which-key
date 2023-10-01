@@ -38,11 +38,8 @@ struct Args {
 
 fn main() -> anyhow::Result<()> {
     let args = Args::parse();
-
     let config = config::Config::new(args.config.as_deref().unwrap_or("config"))?;
-    if config.menu.0.is_empty() {
-        anyhow::bail!("No key mappings defined");
-    }
+    let menu = menu::Menu::new(&config)?;
 
     let (mut conn, globals) = Connection::connect_and_collect_globals()?;
     conn.add_registry_cb(wl_registry_cb);
@@ -52,8 +49,6 @@ fn main() -> anyhow::Result<()> {
 
     let seats = Seats::bind(&mut conn, &globals);
     let shm_alloc = ShmAlloc::bind(&mut conn, &globals)?;
-
-    let menu = menu::Menu::new(&config);
 
     let width = (menu.width() + (config.padding() + config.border_width) * 2.0) as u32;
     let height = (menu.height() + (config.padding() + config.border_width) * 2.0) as u32;
