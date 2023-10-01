@@ -52,7 +52,7 @@ pub struct Config {
 #[serde(untagged, deny_unknown_fields)]
 pub enum Entry {
     Cmd { cmd: String, desc: String },
-    Recursive { submenu: Box<Entries>, desc: String },
+    Recursive { submenu: Entries, desc: String },
 }
 
 impl Config {
