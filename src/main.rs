@@ -92,6 +92,9 @@ fn main() -> anyhow::Result<()> {
         configured: false,
         width,
         height,
+        throttle_cb: None,
+        throttled: false,
+
         menu,
         config,
     };
@@ -124,6 +127,9 @@ struct State {
     configured: bool,
     width: u32,
     height: u32,
+    throttle_cb: Option<WlCallback>,
+    throttled: bool,
+
     menu: menu::Menu,
     config: config::Config,
 }
@@ -139,6 +145,20 @@ impl State {
         if !self.configured {
             return;
         }
+
+        if self.throttle_cb.is_some() {
+            self.throttled = true;
+            return;
+        }
+
+        self.throttle_cb = Some(self.wl_surface.frame_with_cb(conn, |ctx| {
+            assert_eq!(ctx.state.throttle_cb, Some(ctx.proxy));
+            ctx.state.throttle_cb = None;
+            if ctx.state.throttled {
+                ctx.state.throttled = false;
+                ctx.state.draw(ctx.conn);
+            }
+        }));
 
         let scale = if self.wl_surface.version() >= 6 {
             self.surface_scale
