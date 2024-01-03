@@ -10,14 +10,9 @@ jobs:
       - name: Get required packages
         run: sudo apt-get update && sudo apt-get install libpango1.0-dev libxkbcommon-dev
       - uses: actions/checkout@v4
-      - uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: stable
-          override: true
-      - uses: actions-rs/cargo@v1
-        with:
-          command: check
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Check
+        run: cargo check --all --all-features
 
   test:
     name: Test Suite
@@ -26,14 +21,9 @@ jobs:
       - name: Get required packages
         run: sudo apt-get update && sudo apt-get install libpango1.0-dev libxkbcommon-dev
       - uses: actions/checkout@v4
-      - uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: stable
-          override: true
-      - uses: actions-rs/cargo@v1
-        with:
-          command: test
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Tests
+        run: cargo test --all --all-features
 
   fmt:
     name: Rustfmt
@@ -42,16 +32,11 @@ jobs:
       - name: Get required packages
         run: sudo apt-get update && sudo apt-get install libpango1.0-dev libxkbcommon-dev
       - uses: actions/checkout@v4
-      - uses: actions-rs/toolchain@v1
+      - uses: dtolnay/rust-toolchain@stable
         with:
-          profile: minimal
-          toolchain: stable
-          override: true
-      - run: rustup component add rustfmt
-      - uses: actions-rs/cargo@v1
-        with:
-          command: fmt
-          args: --all -- --check
+          components: rustfmt
+      - name: Fmt check
+        run: rustfmt --check --edition 2021 $(fdfind -e rs)
 
   clippy:
     name: Clippy
@@ -60,13 +45,8 @@ jobs:
       - name: Get required packages
         run: sudo apt-get update && sudo apt-get install libpango1.0-dev libxkbcommon-dev
       - uses: actions/checkout@v4
-      - uses: actions-rs/toolchain@v1
+      - uses: dtolnay/rust-toolchain@stable
         with:
-          profile: minimal
-          toolchain: stable
-          override: true
-      - run: rustup component add clippy
-      - uses: actions-rs/cargo@v1
-        with:
-          command: clippy
-          args: -- -D warnings -A unknown-lints
+          components: clippy
+      - name: Clippy check
+        run: cargo clippy --all --all-features -- -D warnings -A unknown-lints
