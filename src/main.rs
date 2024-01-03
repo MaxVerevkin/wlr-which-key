@@ -44,7 +44,7 @@ fn main() -> anyhow::Result<()> {
     let (mut conn, globals) = Connection::connect_and_collect_globals()?;
     conn.add_registry_cb(wl_registry_cb);
 
-    let wl_compositor: WlCompositor = globals.bind(&mut conn, 4)?;
+    let wl_compositor: WlCompositor = globals.bind(&mut conn, 4..=6)?;
     let wlr_layer_shell: ZwlrLayerShellV1 = globals.bind(&mut conn, 2)?;
 
     let seats = Seats::bind(&mut conn, &globals);
@@ -87,6 +87,7 @@ fn main() -> anyhow::Result<()> {
         wl_surface,
         layer_surface,
         visible_on_outputs: HashSet::new(),
+        surface_scale: 1,
         exit: false,
         configured: false,
         width,
@@ -118,6 +119,7 @@ struct State {
     wl_surface: WlSurface,
     layer_surface: ZwlrLayerSurfaceV1,
     visible_on_outputs: HashSet<ObjectId>,
+    surface_scale: u32,
     exit: bool,
     configured: bool,
     width: u32,
@@ -138,13 +140,16 @@ impl State {
             return;
         }
 
-        let scale = self
-            .outputs
-            .iter()
-            .filter(|o| self.visible_on_outputs.contains(&o.wl.id()))
-            .map(|o| o.scale)
-            .max()
-            .unwrap_or(1);
+        let scale = if self.wl_surface.version() >= 6 {
+            self.surface_scale
+        } else {
+            self.outputs
+                .iter()
+                .filter(|o| self.visible_on_outputs.contains(&o.wl.id()))
+                .map(|o| o.scale)
+                .max()
+                .unwrap_or(1)
+        };
 
         let width_f = self.width as f64;
         let height_f = self.height as f64;
@@ -369,6 +374,14 @@ fn wl_surface_cb(ctx: EventCtx<State, WlSurface>) {
         }
         wl_surface::Event::Leave(output) => {
             ctx.state.visible_on_outputs.remove(&output);
+        }
+        wl_surface::Event::PreferredBufferScale(scale) => {
+            assert!(scale >= 1);
+            let scale = scale as u32;
+            if ctx.state.surface_scale != scale {
+                ctx.state.surface_scale = scale;
+                ctx.state.draw(ctx.conn);
+            }
         }
         _ => (),
     }
