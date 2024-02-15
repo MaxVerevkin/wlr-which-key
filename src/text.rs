@@ -34,13 +34,13 @@ impl ComputedText {
     }
 
     pub fn render(&self, context: &cairo::Context, options: RenderOptions) -> Result<()> {
-        pangocairo::update_layout(context, &self.layout);
+        pangocairo::functions::update_layout(context, &self.layout);
 
         context.save()?;
         context.translate(options.x, options.y + (options.height - self.height) * 0.5);
 
         options.fg_color.apply(context);
-        pangocairo::show_layout(context, &self.layout);
+        pangocairo::functions::show_layout(context, &self.layout);
 
         if std::env::var("WLR_WHICH_KEY_LAYOUT_DEBUG").as_deref() == Ok("1") {
             Color::from_rgba(255, 0, 0, 255).apply(context);

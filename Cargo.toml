@@ -9,7 +9,7 @@ license = "GPL-3.0-only"
 authors = ["MaxVerevkin <maxxverr@gmail.com>"]
 
 [dependencies]
-pangocairo = "0.18"
+pangocairo = "0.19"
 anyhow = "1"
 libc = "0.2"
 indexmap = { version = "2.0", features = ["serde"] }
