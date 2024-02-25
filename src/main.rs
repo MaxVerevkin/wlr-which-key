@@ -174,15 +174,18 @@ impl State {
         let width_f = self.width as f64;
         let height_f = self.height as f64;
 
-        let (buffer, canvas) = self.shm_alloc.alloc_buffer(
-            conn,
-            BufferSpec {
-                width: self.width * scale,
-                height: self.height * scale,
-                stride: self.width * 4 * scale,
-                format: wl_shm::Format::Argb8888,
-            },
-        );
+        let (buffer, canvas) = self
+            .shm_alloc
+            .alloc_buffer(
+                conn,
+                BufferSpec {
+                    width: self.width * scale,
+                    height: self.height * scale,
+                    stride: self.width * 4 * scale,
+                    format: wl_shm::Format::Argb8888,
+                },
+            )
+            .expect("could not allocate frame shm buffer");
 
         let cairo_surf = unsafe {
             cairo::ImageSurface::create_for_data_unsafe(
