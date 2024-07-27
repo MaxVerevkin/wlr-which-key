@@ -186,6 +186,9 @@ impl Menu {
             xkb::Keysym::Escape => {
                 return Some(Action::Quit);
             }
+            xkb::Keysym::bracketleft | xkb::Keysym::g if mod_ctrl => {
+                return Some(Action::Quit);
+            }
             xkb::Keysym::BackSpace => {
                 if let Some(parent) = page.parent {
                     return Some(Action::Submenu(parent));
