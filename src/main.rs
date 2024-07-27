@@ -19,7 +19,7 @@ use wayrs_client::proxy::Proxy;
 use wayrs_client::{global::*, EventCtx};
 use wayrs_client::{Connection, IoMode};
 use wayrs_protocols::wlr_layer_shell_unstable_v1::*;
-use wayrs_utils::keyboard::{xkb, Keyboard, KeyboardEvent, KeyboardHandler};
+use wayrs_utils::keyboard::{Keyboard, KeyboardEvent, KeyboardHandler};
 use wayrs_utils::seats::{SeatHandler, Seats};
 use wayrs_utils::shm_alloc::{BufferSpec, ShmAlloc};
 
@@ -305,19 +305,12 @@ impl KeyboardHandler for State {
     }
 
     fn key_presed(&mut self, conn: &mut Connection<Self>, event: KeyboardEvent) {
-        let keysym = event.xkb_state.key_get_one_sym(event.keycode);
-
-        if keysym == xkb::Keysym::Escape {
-            self.exit = true;
-            conn.break_dispatch_loop();
-            return;
-        }
-
-        if let Some(action) = self
-            .menu
-            .get_action(&event.xkb_state, keysym, event.keycode)
-        {
+        if let Some(action) = self.menu.get_action(&event.xkb_state, event.keycode) {
             match action {
+                menu::Action::Quit => {
+                    self.exit = true;
+                    conn.break_dispatch_loop();
+                }
                 menu::Action::Exec(cmd) => {
                     let mut proc = Command::new("sh");
                     proc.args(["-c", &cmd]);

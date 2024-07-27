@@ -5,43 +5,56 @@ use serde::de;
 use wayrs_utils::keyboard::xkb;
 
 #[derive(Clone, PartialEq, Eq, Hash)]
-pub enum Key {
-    Char(String),
-    Keysym { keysym: xkb::Keysym, repr: String },
-}
-
-impl Key {
-    pub fn repr(&self) -> &str {
-        match self {
-            Self::Char(c) => c,
-            Self::Keysym { repr, .. } => repr,
-        }
-    }
+pub struct Key {
+    pub keysym: xkb::Keysym,
+    pub repr: String,
+    pub mod_ctrl: bool,
+    pub mod_alt: bool,
 }
 
 impl FromStr for Key {
-    type Err = ();
+    type Err = String;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let mut chars = s.chars();
-        let Some(_first_char) = chars.next() else {
-            return Err(());
-        };
+        let mut components = s.split('+');
+        let key = components.next_back().unwrap_or(s);
+        let keysym = to_keysym(key).ok_or_else(|| format!("invalid key '{key}'"))?;
 
-        if chars.next().is_none() {
-            return Ok(Self::Char(s.to_owned()));
+        let mut mod_ctrl = false;
+        let mut mod_alt = false;
+        for modifier in components {
+            if modifier.eq_ignore_ascii_case("ctrl") {
+                mod_ctrl = true;
+            } else if modifier.eq_ignore_ascii_case("alt") {
+                mod_alt = true;
+            } else {
+                return Err(format!("unknown modifier '{modifier}"));
+            }
         }
 
-        let keysym = xkb::keysym_from_name(s, xkb::KEYSYM_NO_FLAGS);
+        Ok(Self {
+            keysym,
+            repr: s.to_owned(),
+            mod_ctrl,
+            mod_alt,
+        })
+    }
+}
 
-        if keysym.raw() == xkb::keysyms::KEY_NoSymbol {
-            Err(())
-        } else {
-            Ok(Self::Keysym {
-                keysym,
-                repr: s.to_owned(),
-            })
-        }
+fn to_keysym(s: &str) -> Option<xkb::Keysym> {
+    let mut chars = s.chars();
+    let first_char = chars.next()?;
+
+    let keysym = if chars.next().is_none() {
+        xkb::utf32_to_keysym(first_char as u32)
+    } else {
+        xkb::keysym_from_name(s, xkb::KEYSYM_NO_FLAGS)
+    };
+
+    if keysym.raw() == xkb::keysyms::KEY_NoSymbol {
+        None
+    } else {
+        Some(keysym)
     }
 }
 
@@ -63,8 +76,7 @@ impl<'de> de::Deserialize<'de> for Key {
             where
                 E: de::Error,
             {
-                s.parse()
-                    .map_err(|_| E::custom(format!("unknown key '{s}'")))
+                s.parse().map_err(E::custom)
             }
         }
 

@@ -16,6 +16,8 @@ cargo install wlr-which-key --locked
 
 Default config file: `$XDG_CONFIG_HOME/wlr-which-key/config.yaml` or `~/.config/wlr-which-key/config.yaml`. Run `wlr-which-key --help` for more info.
 
+Keybindings may be single characters (e.g. `a`, `B`) or [xkb key labels](https://github.com/xkbcommon/libxkbcommon/blob/master/include/xkbcommon/xkbcommon-keysyms.h) (without the `XKB_KEY_` prefix, e.g. `Return`, `Insert`). Ctrl and Alt modifiers are supported (like `Ctrl+Return` or `Ctrl+Alt+a`).
+
 Example config:
 
 ```yaml

@@ -29,6 +29,7 @@ struct MenuItem {
 
 #[derive(Clone)]
 pub enum Action {
+    Quit,
     Exec(String),
     Submenu(usize),
 }
@@ -75,7 +76,7 @@ impl Menu {
             let item = match entry {
                 config::Entry::Cmd { cmd, desc } => MenuItem {
                     action: Action::Exec(cmd.into()),
-                    key_comp: ComputedText::new(key.repr(), context, &config.font),
+                    key_comp: ComputedText::new(&key.repr, context, &config.font),
                     val_comp: ComputedText::new(desc, context, &config.font),
                     key: key.clone(),
                 },
@@ -86,7 +87,7 @@ impl Menu {
                     let new_page = self.push_page(context, entries, config, Some(cur_page))?;
                     MenuItem {
                         action: Action::Submenu(new_page),
-                        key_comp: ComputedText::new(key.repr(), context, &config.font),
+                        key_comp: ComputedText::new(&key.repr, context, &config.font),
                         val_comp: ComputedText::new(&format!("+{desc}"), context, &config.font),
                         key: key.clone(),
                     }
@@ -166,29 +167,31 @@ impl Menu {
         Ok(())
     }
 
-    pub fn get_action(
-        &self,
-        xkb: &xkb::State,
-        sym: xkb::Keysym,
-        keycode: xkb::Keycode,
-    ) -> Option<Action> {
+    pub fn get_action(&self, xkb: &xkb::State, keycode: xkb::Keycode) -> Option<Action> {
         let page = &self.pages[self.cur_page];
-        let utf8 = xkb.key_get_utf8(keycode);
+        let sym = xkb.key_get_one_sym(keycode);
 
-        let item_i = page.items.iter().position(|i| match &i.key {
-            Key::Char(c) => *c == utf8,
-            Key::Keysym { keysym, .. } => *keysym == sym,
+        let mod_alt = xkb.mod_name_is_active(xkb::MOD_NAME_ALT, xkb::STATE_MODS_EFFECTIVE);
+        let mod_ctrl = xkb.mod_name_is_active(xkb::MOD_NAME_CTRL, xkb::STATE_MODS_EFFECTIVE);
+
+        let item_i = page.items.iter().position(|i| {
+            i.key.mod_ctrl == mod_ctrl && i.key.mod_alt == mod_alt && i.key.keysym == sym
         });
 
         if let Some(item_i) = item_i {
             return Some(page.items[item_i].action.clone());
         }
 
-        let keysym = xkb.key_get_one_sym(keycode);
-        if keysym == xkb::Keysym::BackSpace {
-            if let Some(parent) = page.parent {
-                return Some(Action::Submenu(parent));
+        match sym {
+            xkb::Keysym::Escape => {
+                return Some(Action::Quit);
             }
+            xkb::Keysym::BackSpace => {
+                if let Some(parent) = page.parent {
+                    return Some(Action::Submenu(parent));
+                }
+            }
+            _ => (),
         }
 
         None
