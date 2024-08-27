@@ -305,7 +305,7 @@ impl KeyboardHandler for State {
     }
 
     fn key_presed(&mut self, conn: &mut Connection<Self>, event: KeyboardEvent) {
-        if let Some(action) = self.menu.get_action(&event.xkb_state, event.keycode) {
+        if let Some(action) = self.menu.get_action(&event.xkb_state, event.keysym) {
             match action {
                 menu::Action::Quit => {
                     self.exit = true;

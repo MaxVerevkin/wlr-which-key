@@ -167,9 +167,8 @@ impl Menu {
         Ok(())
     }
 
-    pub fn get_action(&self, xkb: &xkb::State, keycode: xkb::Keycode) -> Option<Action> {
+    pub fn get_action(&self, xkb: &xkb::State, sym: xkb::Keysym) -> Option<Action> {
         let page = &self.pages[self.cur_page];
-        let sym = xkb.key_get_one_sym(keycode);
 
         let mod_alt = xkb.mod_name_is_active(xkb::MOD_NAME_ALT, xkb::STATE_MODS_EFFECTIVE);
         let mod_ctrl = xkb.mod_name_is_active(xkb::MOD_NAME_CTRL, xkb::STATE_MODS_EFFECTIVE);
