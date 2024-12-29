@@ -104,7 +104,7 @@ impl<'de> de::Deserialize<'de> for Font {
     {
         struct FontVisitor;
 
-        impl<'de> de::Visitor<'de> for FontVisitor {
+        impl de::Visitor<'_> for FontVisitor {
             type Value = Font;
 
             fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {

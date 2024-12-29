@@ -37,10 +37,10 @@ impl Color {
     }
 
     pub fn from_rgba_hex(hex: u32) -> Self {
-        let r = (hex >> 24 & 0xFF) as u8;
-        let g = (hex >> 16 & 0xFF) as u8;
-        let b = (hex >> 8 & 0xFF) as u8;
-        let a = (hex & 0xFF) as u8;
+        let r = (hex >> 24) as u8;
+        let g = (hex >> 16) as u8;
+        let b = (hex >> 8) as u8;
+        let a = hex as u8;
         Self::from_rgba(r, g, b, a)
     }
 }
@@ -51,9 +51,9 @@ impl FromStr for Color {
     fn from_str(color: &str) -> Result<Self, Self::Err> {
         let rgb = color.get(1..7).ok_or(())?;
         let rgb = u32::from_str_radix(rgb, 16).map_err(|_| ())?;
-        let r = (rgb >> 16 & 0xFF) as u8;
-        let g = (rgb >> 8 & 0xFF) as u8;
-        let b = (rgb & 0xFF) as u8;
+        let r = (rgb >> 16) as u8;
+        let g = (rgb >> 8) as u8;
+        let b = rgb as u8;
 
         let a = match color.get(7..9) {
             Some(a) => u8::from_str_radix(a, 16).map_err(|_| ())?,
@@ -71,7 +71,7 @@ impl<'de> de::Deserialize<'de> for Color {
     {
         struct ColorVisitor;
 
-        impl<'de> de::Visitor<'de> for ColorVisitor {
+        impl de::Visitor<'_> for ColorVisitor {
             type Value = Color;
 
             fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
