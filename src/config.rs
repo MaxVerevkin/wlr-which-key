@@ -51,8 +51,16 @@ pub struct Config {
 #[derive(Deserialize)]
 #[serde(untagged, deny_unknown_fields)]
 pub enum Entry {
-    Cmd { cmd: String, desc: String },
-    Recursive { submenu: Entries, desc: String },
+    Cmd {
+        cmd: String,
+        desc: String,
+        #[serde(default)]
+        keep_open: bool,
+    },
+    Recursive {
+        submenu: Entries,
+        desc: String,
+    },
 }
 
 impl Config {
