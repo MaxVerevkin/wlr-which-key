@@ -311,7 +311,7 @@ impl KeyboardHandler for State {
                     self.exit = true;
                     conn.break_dispatch_loop();
                 }
-                menu::Action::Exec(cmd) => {
+                menu::Action::Exec { cmd, keep_open } => {
                     let mut proc = Command::new("sh");
                     proc.args(["-c", &cmd]);
                     proc.stdin(Stdio::null());
@@ -327,7 +327,9 @@ impl KeyboardHandler for State {
                         });
                     }
                     proc.spawn().unwrap().wait().unwrap();
-                    self.exit = true;
+                    if !keep_open {
+                        self.exit = true;
+                    }
                 }
                 menu::Action::Submenu(page) => {
                     self.menu.set_page(page);

@@ -30,7 +30,7 @@ struct MenuItem {
 #[derive(Clone)]
 pub enum Action {
     Quit,
-    Exec(String),
+    Exec { cmd: String, keep_open: bool },
     Submenu(usize),
 }
 
@@ -74,8 +74,15 @@ impl Menu {
 
         for (key, entry) in &entries.0 {
             let item = match entry {
-                config::Entry::Cmd { cmd, desc } => MenuItem {
-                    action: Action::Exec(cmd.into()),
+                config::Entry::Cmd {
+                    cmd,
+                    desc,
+                    keep_open,
+                } => MenuItem {
+                    action: Action::Exec {
+                        cmd: cmd.into(),
+                        keep_open: *keep_open,
+                    },
                     key_comp: ComputedText::new(&key.repr, context, &config.font),
                     val_comp: ComputedText::new(desc, context, &config.font),
                     key: key.clone(),

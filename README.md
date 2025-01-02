@@ -18,6 +18,9 @@ Default config file: `$XDG_CONFIG_HOME/wlr-which-key/config.yaml` or `~/.config/
 
 Keybindings may be single characters (e.g. `a`, `B`) or [xkb key labels](https://github.com/xkbcommon/libxkbcommon/blob/master/include/xkbcommon/xkbcommon-keysyms.h) (without the `XKB_KEY_` prefix, e.g. `Return`, `Insert`). Ctrl and Alt modifiers are supported (like `Ctrl+Return` or `Ctrl+Alt+a`).
 
+When executed a command will normally end the `wlr_which_key` process. If you want certain commands to keep the UI open after they execute then
+configure those specific commands with (`keep_open: true`).
+
 Example config:
 
 ```yaml
@@ -56,7 +59,7 @@ menu:
     submenu:
       "d": { desc: Dark, cmd: dark-theme on }
       "l": { desc: Light, cmd: dark-theme off }
-      "t": { desc: Toggle, cmd: dark-theme toggle }
+      "t": { desc: Toggle, cmd: dark-theme toggle, keep_open: true }
   "l":
     desc: Laptop Screen
     submenu:
