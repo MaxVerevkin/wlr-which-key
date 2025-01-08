@@ -41,14 +41,15 @@ fn main() -> anyhow::Result<()> {
     let config = config::Config::new(args.config.as_deref().unwrap_or("config"))?;
     let menu = menu::Menu::new(&config)?;
 
-    let (mut conn, globals) = Connection::connect_and_collect_globals()?;
+    let mut conn = Connection::connect()?;
+    conn.blocking_roundtrip()?;
     conn.add_registry_cb(wl_registry_cb);
 
-    let wl_compositor: WlCompositor = globals.bind(&mut conn, 4..=6)?;
-    let wlr_layer_shell: ZwlrLayerShellV1 = globals.bind(&mut conn, 2)?;
+    let wl_compositor: WlCompositor = conn.bind_singleton(4..=6)?;
+    let wlr_layer_shell: ZwlrLayerShellV1 = conn.bind_singleton(2)?;
 
-    let seats = Seats::bind(&mut conn, &globals);
-    let shm_alloc = ShmAlloc::bind(&mut conn, &globals)?;
+    let seats = Seats::bind(&mut conn);
+    let shm_alloc = ShmAlloc::bind(&mut conn)?;
 
     let width = (menu.width() + (config.padding() + config.border_width) * 2.0) as u32;
     let height = (menu.height() + (config.padding() + config.border_width) * 2.0) as u32;
@@ -98,11 +99,6 @@ fn main() -> anyhow::Result<()> {
         menu,
         config,
     };
-
-    globals
-        .iter()
-        .filter(|g| g.is::<WlOutput>())
-        .for_each(|g| state.bind_output(&mut conn, g));
 
     while !state.exit {
         conn.flush(IoMode::Blocking)?;
