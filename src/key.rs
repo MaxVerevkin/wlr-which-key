@@ -16,6 +16,15 @@ impl FromStr for Key {
     type Err = String;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
+        if s == "+" {
+            return Ok(Self {
+                keysym: xkb::Keysym::plus,
+                repr: String::from("+"),
+                mod_ctrl: false,
+                mod_alt: false,
+            });
+        }
+
         let mut components = s.split('+');
         let key = components.next_back().unwrap_or(s);
         let keysym = to_keysym(key).ok_or_else(|| format!("invalid key '{key}'"))?;
