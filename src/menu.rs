@@ -43,7 +43,7 @@ impl Menu {
         let mut this = Self {
             pages: Vec::new(),
             cur_page: 0,
-            separator: ComputedText::new(&config.separator, &context, &config.font),
+            separator: ComputedText::new(&config.separator, &context, &config.font.0),
         };
 
         this.push_page(&context, &config.menu, config, None)?;
@@ -54,11 +54,11 @@ impl Menu {
     fn push_page(
         &mut self,
         context: &pango::Context,
-        entries: &config::Entries,
+        entries: &[config::Entry],
         config: &Config,
         parent: Option<usize>,
     ) -> Result<usize> {
-        if entries.0.is_empty() {
+        if entries.is_empty() {
             bail!("Empty menu pages are not allowed");
         }
 
@@ -72,9 +72,10 @@ impl Menu {
             parent,
         });
 
-        for (key, entry) in &entries.0 {
+        for entry in entries {
             let item = match entry {
                 config::Entry::Cmd {
+                    key,
                     cmd,
                     desc,
                     keep_open,
@@ -83,19 +84,20 @@ impl Menu {
                         cmd: cmd.into(),
                         keep_open: *keep_open,
                     },
-                    key_comp: ComputedText::new(&key.repr, context, &config.font),
-                    val_comp: ComputedText::new(desc, context, &config.font),
+                    key_comp: ComputedText::new(&key.repr, context, &config.font.0),
+                    val_comp: ComputedText::new(desc, context, &config.font.0),
                     key: key.clone(),
                 },
                 config::Entry::Recursive {
+                    key,
                     submenu: entries,
                     desc,
                 } => {
                     let new_page = self.push_page(context, entries, config, Some(cur_page))?;
                     MenuItem {
                         action: Action::Submenu(new_page),
-                        key_comp: ComputedText::new(&key.repr, context, &config.font),
-                        val_comp: ComputedText::new(&format!("+{desc}"), context, &config.font),
+                        key_comp: ComputedText::new(&key.repr, context, &config.font.0),
+                        val_comp: ComputedText::new(&format!("+{desc}"), context, &config.font.0),
                         key: key.clone(),
                     }
                 }

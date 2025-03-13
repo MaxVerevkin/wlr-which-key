@@ -315,10 +315,7 @@ impl KeyboardHandler for State {
                     // Safety: libc::daemon() is async-signal-safe
                     unsafe {
                         proc.pre_exec(|| match libc::daemon(1, 0) {
-                            -1 => Err(io::Error::new(
-                                io::ErrorKind::Other,
-                                "Failed to detach new process",
-                            )),
+                            -1 => Err(io::Error::other("Failed to detach new process")),
                             _ => Ok(()),
                         });
                     }
