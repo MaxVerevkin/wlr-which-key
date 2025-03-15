@@ -3,13 +3,13 @@ use serde::Deserialize;
 use smart_default::SmartDefault;
 
 use crate::color::Color;
-use crate::key::Key;
+use crate::key::SingleKey;
 
 use super::{ConfigAnchor, Font};
 
 #[derive(Deserialize, Default)]
 #[serde(transparent)]
-pub struct Entries(pub IndexMap<Key, Entry>);
+pub struct Entries(pub IndexMap<SingleKey, Entry>);
 
 #[derive(Deserialize, SmartDefault)]
 #[serde(deny_unknown_fields, default)]
@@ -68,13 +68,13 @@ impl From<Config> for super::Config {
                         desc,
                         keep_open,
                     } => super::Entry::Cmd {
-                        key,
+                        key: key.into(),
                         cmd,
                         desc,
                         keep_open,
                     },
                     Entry::Recursive { submenu, desc } => super::Entry::Recursive {
-                        key,
+                        key: key.into(),
                         submenu: map_entries(submenu),
                         desc,
                     },

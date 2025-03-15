@@ -84,7 +84,7 @@ impl Menu {
                         cmd: cmd.into(),
                         keep_open: *keep_open,
                     },
-                    key_comp: ComputedText::new(&key.repr, context, &config.font.0),
+                    key_comp: ComputedText::new(key.to_string(), context, &config.font.0),
                     val_comp: ComputedText::new(desc, context, &config.font.0),
                     key: key.clone(),
                 },
@@ -96,8 +96,8 @@ impl Menu {
                     let new_page = self.push_page(context, entries, config, Some(cur_page))?;
                     MenuItem {
                         action: Action::Submenu(new_page),
-                        key_comp: ComputedText::new(&key.repr, context, &config.font.0),
-                        val_comp: ComputedText::new(&format!("+{desc}"), context, &config.font.0),
+                        key_comp: ComputedText::new(key.to_string(), context, &config.font.0),
+                        val_comp: ComputedText::new(format!("+{desc}"), context, &config.font.0),
                         key: key.clone(),
                     }
                 }
@@ -182,9 +182,10 @@ impl Menu {
         let mod_alt = xkb.mod_name_is_active(xkb::MOD_NAME_ALT, xkb::STATE_MODS_EFFECTIVE);
         let mod_ctrl = xkb.mod_name_is_active(xkb::MOD_NAME_CTRL, xkb::STATE_MODS_EFFECTIVE);
 
-        let item_i = page.items.iter().position(|i| {
-            i.key.mod_ctrl == mod_ctrl && i.key.mod_alt == mod_alt && i.key.keysym == sym
-        });
+        let item_i = page
+            .items
+            .iter()
+            .position(|i| i.key.matches(sym, mod_ctrl, mod_alt));
 
         if let Some(item_i) = item_i {
             return Some(page.items[item_i].action.clone());
