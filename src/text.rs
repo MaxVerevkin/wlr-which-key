@@ -19,10 +19,10 @@ pub struct ComputedText {
 }
 
 impl ComputedText {
-    pub fn new(text: &str, context: &pango::Context, font: &FontDescription) -> Self {
+    pub fn new(text: impl AsRef<str>, context: &pango::Context, font: &FontDescription) -> Self {
         let layout = pango::Layout::new(context);
         layout.set_font_description(Some(font));
-        layout.set_markup(text);
+        layout.set_markup(text.as_ref());
 
         let (width, height) = layout.pixel_size();
 

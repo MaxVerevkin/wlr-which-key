@@ -4,15 +4,48 @@ use std::str::FromStr;
 use serde::de;
 use wayrs_utils::keyboard::xkb;
 
-#[derive(Clone, PartialEq, Eq, Hash)]
+#[derive(Clone)]
 pub struct Key {
-    pub keysym: xkb::Keysym,
-    pub repr: String,
-    pub mod_ctrl: bool,
-    pub mod_alt: bool,
+    any_of: Vec<SingleKey>,
 }
 
-impl FromStr for Key {
+#[derive(Clone, PartialEq, Eq, Hash)]
+pub struct SingleKey {
+    keysym: xkb::Keysym,
+    repr: String,
+    mod_ctrl: bool,
+    mod_alt: bool,
+}
+
+impl Key {
+    pub fn matches(&self, sym: xkb::Keysym, ctrl: bool, alt: bool) -> bool {
+        self.any_of
+            .iter()
+            .any(|key| key.mod_ctrl == ctrl && key.mod_alt == alt && key.keysym == sym)
+    }
+}
+
+impl fmt::Display for Key {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        for (i, key) in self.any_of.iter().enumerate() {
+            f.write_str(&key.repr)?;
+            if i + 1 != self.any_of.len() {
+                f.write_str(" | ")?
+            }
+        }
+        Ok(())
+    }
+}
+
+impl From<SingleKey> for Key {
+    fn from(value: SingleKey) -> Self {
+        Self {
+            any_of: vec![value],
+        }
+    }
+}
+
+impl FromStr for SingleKey {
     type Err = String;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
@@ -74,11 +107,48 @@ impl<'de> de::Deserialize<'de> for Key {
     {
         struct KeyVisitor;
 
-        impl de::Visitor<'_> for KeyVisitor {
+        impl<'de> de::Visitor<'de> for KeyVisitor {
             type Value = Key;
 
             fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-                formatter.write_str("key")
+                formatter.write_str("a key or a list of keys")
+            }
+
+            fn visit_str<E>(self, s: &str) -> Result<Self::Value, E>
+            where
+                E: de::Error,
+            {
+                Ok(Key::from(s.parse::<SingleKey>().map_err(E::custom)?))
+            }
+
+            fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, A::Error>
+            where
+                A: de::SeqAccess<'de>,
+            {
+                let mut any_of = Vec::new();
+                while let Some(next) = seq.next_element()? {
+                    any_of.push(next);
+                }
+                Ok(Key { any_of })
+            }
+        }
+
+        deserializer.deserialize_any(KeyVisitor)
+    }
+}
+
+impl<'de> de::Deserialize<'de> for SingleKey {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: de::Deserializer<'de>,
+    {
+        struct KeyVisitor;
+
+        impl de::Visitor<'_> for KeyVisitor {
+            type Value = SingleKey;
+
+            fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+                formatter.write_str("a key")
             }
 
             fn visit_str<E>(self, s: &str) -> Result<Self::Value, E>
