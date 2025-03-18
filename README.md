@@ -16,7 +16,7 @@ cargo install wlr-which-key --locked
 
 Default config file: `$XDG_CONFIG_HOME/wlr-which-key/config.yaml` or `~/.config/wlr-which-key/config.yaml`. Run `wlr-which-key --help` for more info.
 
-Keybindings may be single characters (e.g. `a`, `B`) or [xkb key labels](https://github.com/xkbcommon/libxkbcommon/blob/master/include/xkbcommon/xkbcommon-keysyms.h) (without the `XKB_KEY_` prefix, e.g. `Return`, `Insert`). Ctrl and Alt modifiers are supported (like `Ctrl+Return` or `Ctrl+Alt+a`). A `key` may also be a list of strings, in which case a keybinding will match if any of the keys match (e.g. `key: [Left, h]`) will match both left arrow and 'h'.
+Keybindings may be single characters (e.g. `a`, `B`) or [xkb key labels](https://github.com/xkbcommon/libxkbcommon/blob/master/include/xkbcommon/xkbcommon-keysyms.h) (without the `XKB_KEY_` prefix, e.g. `Return`, `Insert`). Ctrl, Alt, and Mod4/Logo modifiers are supported (like `Ctrl+Return` or `Ctrl+Alt+a` or `Mod4+Return` or `Logo+Return`). A `key` may also be a list of strings, in which case a keybinding will match if any of the keys match (e.g. `key: [Left, h]`) will match both left arrow and 'h'.
 
 When executed a command will normally end the `wlr_which_key` process. If you want certain commands to keep the UI open after they execute then
 configure those specific commands with (`keep_open: true`).

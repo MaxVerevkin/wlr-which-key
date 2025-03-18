@@ -3,7 +3,7 @@ use pangocairo::{cairo, pango};
 use wayrs_utils::keyboard::xkb;
 
 use crate::config::{self, Config};
-use crate::key::Key;
+use crate::key::{Key, ModifierState};
 use crate::text::{self, ComputedText};
 
 pub struct Menu {
@@ -178,14 +178,11 @@ impl Menu {
 
     pub fn get_action(&self, xkb: &xkb::State, sym: xkb::Keysym) -> Option<Action> {
         let page = &self.pages[self.cur_page];
-
-        let mod_alt = xkb.mod_name_is_active(xkb::MOD_NAME_ALT, xkb::STATE_MODS_EFFECTIVE);
-        let mod_ctrl = xkb.mod_name_is_active(xkb::MOD_NAME_CTRL, xkb::STATE_MODS_EFFECTIVE);
-
+        let modifiers = ModifierState::from_xkb_state(xkb);
         let item_i = page
             .items
             .iter()
-            .position(|i| i.key.matches(sym, mod_ctrl, mod_alt));
+            .position(|i| i.key.matches(sym, modifiers));
 
         if let Some(item_i) = item_i {
             return Some(page.items[item_i].action.clone());
@@ -195,7 +192,7 @@ impl Menu {
             xkb::Keysym::Escape => {
                 return Some(Action::Quit);
             }
-            xkb::Keysym::bracketleft | xkb::Keysym::g if mod_ctrl => {
+            xkb::Keysym::bracketleft | xkb::Keysym::g if modifiers.mod_ctrl => {
                 return Some(Action::Quit);
             }
             xkb::Keysym::BackSpace => {

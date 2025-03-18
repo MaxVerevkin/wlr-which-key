@@ -9,19 +9,35 @@ pub struct Key {
     any_of: Vec<SingleKey>,
 }
 
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Default)]
+pub struct ModifierState {
+    pub mod_ctrl: bool,
+    pub mod_alt: bool,
+    pub mod_mod4: bool,
+}
+
+impl ModifierState {
+    pub fn from_xkb_state(xkb: &xkb::State) -> Self {
+        Self {
+            mod_ctrl: xkb.mod_name_is_active(xkb::MOD_NAME_CTRL, xkb::STATE_MODS_EFFECTIVE),
+            mod_alt: xkb.mod_name_is_active(xkb::MOD_NAME_ALT, xkb::STATE_MODS_EFFECTIVE),
+            mod_mod4: xkb.mod_name_is_active(xkb::MOD_NAME_LOGO, xkb::STATE_MODS_EFFECTIVE),
+        }
+    }
+}
+
 #[derive(Clone, PartialEq, Eq, Hash)]
 pub struct SingleKey {
     keysym: xkb::Keysym,
     repr: String,
-    mod_ctrl: bool,
-    mod_alt: bool,
+    modifiers: ModifierState,
 }
 
 impl Key {
-    pub fn matches(&self, sym: xkb::Keysym, ctrl: bool, alt: bool) -> bool {
+    pub fn matches(&self, sym: xkb::Keysym, modifiers: ModifierState) -> bool {
         self.any_of
             .iter()
-            .any(|key| key.mod_ctrl == ctrl && key.mod_alt == alt && key.keysym == sym)
+            .any(|key| key.modifiers == modifiers && key.keysym == sym)
     }
 }
 
@@ -53,8 +69,7 @@ impl FromStr for SingleKey {
             return Ok(Self {
                 keysym: xkb::Keysym::plus,
                 repr: String::from("+"),
-                mod_ctrl: false,
-                mod_alt: false,
+                modifiers: Default::default(),
             });
         }
 
@@ -62,13 +77,15 @@ impl FromStr for SingleKey {
         let key = components.next_back().unwrap_or(s);
         let keysym = to_keysym(key).ok_or_else(|| format!("invalid key '{key}'"))?;
 
-        let mut mod_ctrl = false;
-        let mut mod_alt = false;
+        let mut modifiers = ModifierState::default();
         for modifier in components {
             if modifier.eq_ignore_ascii_case("ctrl") {
-                mod_ctrl = true;
+                modifiers.mod_ctrl = true;
             } else if modifier.eq_ignore_ascii_case("alt") {
-                mod_alt = true;
+                modifiers.mod_alt = true;
+            } else if modifier.eq_ignore_ascii_case("mod4") || modifier.eq_ignore_ascii_case("logo")
+            {
+                modifiers.mod_mod4 = true;
             } else {
                 return Err(format!("unknown modifier '{modifier}"));
             }
@@ -77,8 +94,7 @@ impl FromStr for SingleKey {
         Ok(Self {
             keysym,
             repr: s.to_owned(),
-            mod_ctrl,
-            mod_alt,
+            modifiers,
         })
     }
 }
