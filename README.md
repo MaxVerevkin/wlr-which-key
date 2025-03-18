@@ -42,7 +42,11 @@ margin_bottom: 0
 margin_left: 0
 margin_top: 0
 
-menu: 
+# Permits key bindings that conflict with compositor key bindings.
+# Default is `false`.
+inhibit_compositor_keyboard_shortcuts: true
+
+menu:
   - key: "p"
     desc: Power
     submenu:
@@ -100,7 +104,7 @@ menu:
   margin_left: 0
   margin_top: 0
 
-  menu: 
+  menu:
     "w":
       desc: WiFi
       submenu:

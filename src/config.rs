@@ -43,6 +43,8 @@ pub struct Config {
     // defaults to `corner_r`
     pub padding: Option<f64>,
 
+    pub inhibit_compositor_keyboard_shortcuts: bool,
+
     pub menu: Vec<Entry>,
 }
 
