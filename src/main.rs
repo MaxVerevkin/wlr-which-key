@@ -4,7 +4,7 @@ mod key;
 mod menu;
 mod text;
 
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::f64::consts::{FRAC_PI_2, PI, TAU};
 use std::io;
 use std::os::unix::process::CommandExt;
@@ -18,6 +18,7 @@ use wayrs_client::protocol::*;
 use wayrs_client::proxy::Proxy;
 use wayrs_client::{global::*, EventCtx};
 use wayrs_client::{Connection, IoMode};
+use wayrs_protocols::keyboard_shortcuts_inhibit_unstable_v1::*;
 use wayrs_protocols::wlr_layer_shell_unstable_v1::*;
 use wayrs_utils::keyboard::{Keyboard, KeyboardEvent, KeyboardHandler};
 use wayrs_utils::seats::{SeatHandler, Seats};
@@ -47,6 +48,12 @@ fn main() -> anyhow::Result<()> {
 
     let wl_compositor: WlCompositor = conn.bind_singleton(4..=6)?;
     let wlr_layer_shell: ZwlrLayerShellV1 = conn.bind_singleton(2)?;
+    let keyboard_shortcuts_inhibit_manager: Option<ZwpKeyboardShortcutsInhibitManagerV1> =
+        if config.inhibit_compositor_keyboard_shortcuts {
+            Some(conn.bind_singleton(1)?)
+        } else {
+            None
+        };
 
     let seats = Seats::bind(&mut conn);
     let shm_alloc = ShmAlloc::bind(&mut conn)?;
@@ -84,6 +91,8 @@ fn main() -> anyhow::Result<()> {
         seats,
         keyboards: Vec::new(),
         outputs: Vec::new(),
+        keyboard_shortcuts_inhibit_manager,
+        keyboard_shortcuts_inhibitors: HashMap::new(),
 
         wl_surface,
         layer_surface,
@@ -114,6 +123,8 @@ struct State {
     seats: Seats,
     keyboards: Vec<Keyboard>,
     outputs: Vec<Output>,
+    keyboard_shortcuts_inhibit_manager: Option<ZwpKeyboardShortcutsInhibitManagerV1>,
+    keyboard_shortcuts_inhibitors: HashMap<WlSeat, ZwpKeyboardShortcutsInhibitorV1>,
 
     wl_surface: WlSurface,
     layer_surface: ZwlrLayerSurfaceV1,
@@ -275,6 +286,22 @@ impl State {
 impl SeatHandler for State {
     fn get_seats(&mut self) -> &mut Seats {
         &mut self.seats
+    }
+
+    fn seat_added(&mut self, conn: &mut Connection<Self>, seat: WlSeat) {
+        if let Some(inhibit_manager) = &self.keyboard_shortcuts_inhibit_manager {
+            self.keyboard_shortcuts_inhibitors.insert(
+                seat,
+                inhibit_manager.inhibit_shortcuts(conn, self.wl_surface, seat),
+            );
+        }
+    }
+
+    fn seat_removed(&mut self, conn: &mut Connection<Self>, seat: WlSeat) {
+        let Some(inhibitor) = self.keyboard_shortcuts_inhibitors.remove(&seat) else {
+            return;
+        };
+        inhibitor.destroy(conn);
     }
 
     fn keyboard_added(&mut self, conn: &mut Connection<Self>, seat: WlSeat) {

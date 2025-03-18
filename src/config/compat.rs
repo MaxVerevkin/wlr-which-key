@@ -97,6 +97,7 @@ impl From<Config> for super::Config {
             corner_r: value.corner_r,
             padding: value.padding,
             menu: map_entries(value.menu),
+            inhibit_compositor_keyboard_shortcuts: false,
         }
     }
 }
