@@ -9,6 +9,7 @@ use std::f64::consts::{FRAC_PI_2, PI, TAU};
 use std::io;
 use std::os::unix::process::CommandExt;
 use std::process::{Command, Stdio};
+use std::sync::LazyLock;
 
 use clap::Parser;
 use pangocairo::cairo;
@@ -37,6 +38,9 @@ struct Args {
     config: Option<String>,
 }
 
+static DEBUG_LAYOUT: LazyLock<bool> =
+    LazyLock::new(|| std::env::var("WLR_WHICH_KEY_LAYOUT_DEBUG").as_deref() == Ok("1"));
+
 fn main() -> anyhow::Result<()> {
     let args = Args::parse();
     let config = config::Config::new(args.config.as_deref().unwrap_or("config"))?;
@@ -58,8 +62,8 @@ fn main() -> anyhow::Result<()> {
     let seats = Seats::bind(&mut conn);
     let shm_alloc = ShmAlloc::bind(&mut conn)?;
 
-    let width = (menu.width() + (config.padding() + config.border_width) * 2.0) as u32;
-    let height = (menu.height() + (config.padding() + config.border_width) * 2.0) as u32;
+    let width = menu.width(&config) as u32;
+    let height = menu.height(&config) as u32;
 
     let wl_surface = wl_compositor.create_surface_with_cb(&mut conn, wl_surface_cb);
 
@@ -249,14 +253,7 @@ impl State {
         cairo_ctx.stroke().unwrap();
 
         // draw our menu
-        self.menu
-            .render(
-                &self.config,
-                &cairo_ctx,
-                self.config.padding() + self.config.border_width,
-                self.config.padding() + self.config.border_width,
-            )
-            .unwrap();
+        self.menu.render(&self.config, &cairo_ctx).unwrap();
 
         // Damage the entire window
         self.wl_surface.damage_buffer(
@@ -353,14 +350,8 @@ impl KeyboardHandler for State {
                 }
                 menu::Action::Submenu(page) => {
                     self.menu.set_page(page);
-
-                    self.width = (self.menu.width()
-                        + (self.config.padding() + self.config.border_width) * 2.0)
-                        as u32;
-                    self.height = (self.menu.height()
-                        + (self.config.padding() + self.config.border_width) * 2.0)
-                        as u32;
-
+                    self.width = self.menu.width(&self.config) as u32;
+                    self.height = self.menu.height(&self.config) as u32;
                     self.layer_surface.set_size(conn, self.width, self.height);
                     self.wl_surface.commit(conn);
                 }

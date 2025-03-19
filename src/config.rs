@@ -40,8 +40,9 @@ pub struct Config {
     pub border_width: f64,
     #[default(20.0)]
     pub corner_r: f64,
-    // defaults to `corner_r`
     pub padding: Option<f64>,
+    pub rows_per_column: Option<usize>,
+    pub column_padding: Option<f64>,
 
     pub inhibit_compositor_keyboard_shortcuts: bool,
 
@@ -77,6 +78,10 @@ impl Config {
 
     pub fn padding(&self) -> f64 {
         self.padding.unwrap_or(self.corner_r)
+    }
+
+    pub fn column_padding(&self) -> f64 {
+        self.column_padding.unwrap_or_else(|| self.padding())
     }
 }
 

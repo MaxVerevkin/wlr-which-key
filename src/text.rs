@@ -1,4 +1,4 @@
-use crate::color::Color;
+use crate::{color::Color, DEBUG_LAYOUT};
 use anyhow::Result;
 use pango::FontDescription;
 use pangocairo::{cairo, pango};
@@ -42,7 +42,7 @@ impl ComputedText {
         options.fg_color.apply(context);
         pangocairo::functions::show_layout(context, &self.layout);
 
-        if std::env::var("WLR_WHICH_KEY_LAYOUT_DEBUG").as_deref() == Ok("1") {
+        if *DEBUG_LAYOUT {
             Color::from_rgba(255, 0, 0, 255).apply(context);
             context.rectangle(0.0, 0.0, self.width, self.height);
             context.set_line_width(1.0);

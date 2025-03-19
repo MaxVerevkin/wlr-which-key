@@ -96,6 +96,8 @@ impl From<Config> for super::Config {
             border_width: value.border_width,
             corner_r: value.corner_r,
             padding: value.padding,
+            rows_per_column: None,
+            column_padding: None,
             menu: map_entries(value.menu),
             inhibit_compositor_keyboard_shortcuts: false,
         }
