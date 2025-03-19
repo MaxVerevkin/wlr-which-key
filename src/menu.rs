@@ -2,9 +2,11 @@ use anyhow::{bail, Result};
 use pangocairo::{cairo, pango};
 use wayrs_utils::keyboard::xkb;
 
+use crate::color::Color;
 use crate::config::{self, Config};
 use crate::key::{Key, ModifierState};
 use crate::text::{self, ComputedText};
+use crate::DEBUG_LAYOUT;
 
 pub struct Menu {
     pages: Vec<MenuPage>,
@@ -13,11 +15,15 @@ pub struct Menu {
 }
 
 struct MenuPage {
+    item_height: f64,
+    columns: Vec<MenuColumn>,
+    parent: Option<usize>,
+}
+
+struct MenuColumn {
     key_col_width: f64,
     val_col_width: f64,
-    item_height: f64,
     items: Vec<MenuItem>,
-    parent: Option<usize>,
 }
 
 struct MenuItem {
@@ -65,14 +71,12 @@ impl Menu {
         let cur_page = self.pages.len();
 
         self.pages.push(MenuPage {
-            key_col_width: 0.0,
-            val_col_width: 0.0,
             item_height: self.separator.height,
-            items: Vec::new(),
+            columns: Vec::new(),
             parent,
         });
 
-        for entry in entries {
+        for (entry_i, entry) in entries.iter().enumerate() {
             let item = match entry {
                 config::Entry::Cmd {
                     key,
@@ -103,74 +107,115 @@ impl Menu {
                 }
             };
 
-            if item.key_comp.height > self.pages[cur_page].item_height {
-                self.pages[cur_page].item_height = item.key_comp.height;
-            }
-            if item.key_comp.width > self.pages[cur_page].key_col_width {
-                self.pages[cur_page].key_col_width = item.key_comp.width;
+            let height = f64::max(item.key_comp.height, item.val_comp.height);
+            if height > self.pages[cur_page].item_height {
+                self.pages[cur_page].item_height = height;
             }
 
-            if item.val_comp.height > self.pages[cur_page].item_height {
-                self.pages[cur_page].item_height = item.val_comp.height;
-            }
-            if item.val_comp.width > self.pages[cur_page].val_col_width {
-                self.pages[cur_page].val_col_width = item.val_comp.width;
-            }
+            let col_i = config
+                .rows_per_column
+                .map_or(0, |rows_per_column| entry_i / rows_per_column);
 
-            self.pages[cur_page].items.push(item);
+            if col_i == self.pages[cur_page].columns.len() {
+                self.pages[cur_page].columns.push(MenuColumn {
+                    key_col_width: item.key_comp.width,
+                    val_col_width: item.val_comp.width,
+                    items: vec![item],
+                });
+            } else {
+                let col = &mut self.pages[cur_page].columns[col_i];
+                col.key_col_width = col.key_col_width.max(item.key_comp.width);
+                col.val_col_width = col.val_col_width.max(item.val_comp.width);
+                col.items.push(item);
+            }
         }
 
         Ok(cur_page)
     }
 
-    pub fn width(&self) -> f64 {
+    pub fn width(&self, config: &Config) -> f64 {
         let page = &self.pages[self.cur_page];
-        page.key_col_width + page.val_col_width + self.separator.width
+        page.columns
+            .iter()
+            .map(|col| col.key_col_width + col.val_col_width + self.separator.width)
+            .sum::<f64>()
+            + (page.columns.len() - 1) as f64 * config.column_padding()
+            + (config.padding() + config.border_width) * 2.0
     }
 
-    pub fn height(&self) -> f64 {
+    pub fn height(&self, config: &Config) -> f64 {
         let page = &self.pages[self.cur_page];
-        page.item_height * page.items.len() as f64
+        page.columns
+            .iter()
+            .map(|col| page.item_height * col.items.len() as f64)
+            .max_by(f64::total_cmp)
+            .unwrap()
+            + (config.padding() + config.border_width) * 2.0
     }
 
-    pub fn render(
+    pub fn render(&self, config: &config::Config, cairo_ctx: &cairo::Context) -> Result<()> {
+        let mut dx = config.padding() + config.border_width;
+        let dy = config.padding() + config.border_width;
+        let page = &self.pages[self.cur_page];
+        for col in &page.columns {
+            self.render_column(config, cairo_ctx, dx, dy, page, col)?;
+            dx += col.key_col_width
+                + col.val_col_width
+                + self.separator.width
+                + config.column_padding();
+        }
+        Ok(())
+    }
+
+    fn render_column(
         &self,
-        config: &config::Config,
+        config: &Config,
         cairo_ctx: &cairo::Context,
         dx: f64,
         dy: f64,
+        page: &MenuPage,
+        column: &MenuColumn,
     ) -> Result<()> {
-        let page = &self.pages[self.cur_page];
-        let fg_color = config.color;
-
-        for (i, comp) in page.items.iter().enumerate() {
+        for (i, comp) in column.items.iter().enumerate() {
             comp.key_comp.render(
                 cairo_ctx,
                 text::RenderOptions {
-                    x: dx + page.key_col_width - comp.key_comp.width,
+                    x: dx + column.key_col_width - comp.key_comp.width,
                     y: dy + page.item_height * (i as f64),
-                    fg_color,
+                    fg_color: config.color,
                     height: page.item_height,
                 },
             )?;
             self.separator.render(
                 cairo_ctx,
                 text::RenderOptions {
-                    x: dx + page.key_col_width,
+                    x: dx + column.key_col_width,
                     y: dy + page.item_height * (i as f64),
-                    fg_color,
+                    fg_color: config.color,
                     height: page.item_height,
                 },
             )?;
             comp.val_comp.render(
                 cairo_ctx,
                 text::RenderOptions {
-                    x: dx + page.key_col_width + self.separator.width,
+                    x: dx + column.key_col_width + self.separator.width,
                     y: dy + page.item_height * (i as f64),
-                    fg_color,
+                    fg_color: config.color,
                     height: page.item_height,
                 },
             )?;
+        }
+
+        if *DEBUG_LAYOUT {
+            Color::from_rgba(0, 0, 255, 255).apply(cairo_ctx);
+            cairo_ctx.rectangle(
+                dx,
+                dy,
+                column.key_col_width + column.val_col_width + self.separator.width,
+                column.items.len() as f64 * page.item_height,
+            );
+            cairo_ctx.set_line_width(1.0);
+            cairo_ctx.stroke().unwrap();
         }
 
         Ok(())
@@ -179,13 +224,14 @@ impl Menu {
     pub fn get_action(&self, xkb: &xkb::State, sym: xkb::Keysym) -> Option<Action> {
         let page = &self.pages[self.cur_page];
         let modifiers = ModifierState::from_xkb_state(xkb);
-        let item_i = page
-            .items
-            .iter()
-            .position(|i| i.key.matches(sym, modifiers));
 
-        if let Some(item_i) = item_i {
-            return Some(page.items[item_i].action.clone());
+        let action = page.columns.iter().find_map(|col| {
+            col.items
+                .iter()
+                .find_map(|i| i.key.matches(sym, modifiers).then(|| i.action.clone()))
+        });
+        if action.is_some() {
+            return action;
         }
 
         match sym {

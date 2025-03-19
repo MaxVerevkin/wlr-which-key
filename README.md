@@ -33,6 +33,8 @@ separator: " ➜ "
 border_width: 2
 corner_r: 10
 padding: 15 # Defaults to corner_r
+rows_per_column: 5 # No limit by default
+column_padding: 25 # Defaults to padding
 
 # Anchor and margin
 anchor: center # One of center, left, right, top, bottom, bottom-left, top-left, etc.
