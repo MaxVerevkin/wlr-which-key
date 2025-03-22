@@ -269,15 +269,6 @@ impl State {
             .attach(conn, Some(buffer.into_wl_buffer()), 0, 0);
         self.wl_surface.commit(conn);
     }
-
-    fn bind_output(&mut self, conn: &mut Connection<Self>, global: &Global) {
-        let wl: WlOutput = global.bind_with_cb(conn, 1..=4, wl_output_cb).unwrap();
-        self.outputs.push(Output {
-            wl,
-            reg_name: global.name,
-            scale: 1,
-        });
-    }
 }
 
 impl SeatHandler for State {
@@ -364,7 +355,13 @@ impl KeyboardHandler for State {
 
 fn wl_registry_cb(conn: &mut Connection<State>, state: &mut State, event: &wl_registry::Event) {
     match event {
-        wl_registry::Event::Global(g) if g.is::<WlOutput>() => state.bind_output(conn, g),
+        wl_registry::Event::Global(g) if g.is::<WlOutput>() => {
+            state.outputs.push(Output {
+                wl: g.bind_with_cb(conn, 1..=4, wl_output_cb).unwrap(),
+                reg_name: g.name,
+                scale: 1,
+            });
+        }
         wl_registry::Event::GlobalRemove(name) => {
             if let Some(output_i) = state.outputs.iter().position(|o| o.reg_name == *name) {
                 let output = state.outputs.swap_remove(output_i);
