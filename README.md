@@ -19,6 +19,9 @@ This repository provides the flake outputs:
 packages.${system}.wlr-which-key
 homeManagerModules.wlr-which-key
 ```
+Or you can use the version from nixpkgs (`pkgs.wlr-which-key`)
+
+If you use the package in this flake, you will have to build it locally.
 
 #### Nix profile
 
