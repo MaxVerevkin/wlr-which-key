@@ -12,6 +12,148 @@ Keymap manager for wlroots-based compositors. Inspired by [which-key.nvim](https
 cargo install wlr-which-key --locked
 ```
 
+### Nix
+
+This repository provides the flake outputs:
+```nix
+packages.${system}.wlr-which-key
+homeManagerModules.wlr-which-key
+```
+
+#### Nix profile
+
+```sh
+nix profile install github:MaxVerevkin/wlr-which-key
+```
+
+#### Flakes
+
+<details>
+  <summary>Example flake</summary>
+
+  ```nix
+    {
+      inputs = {
+        # other inputs...      
+        wlr-which-key = {
+          url = "github:MaxVerevkin/wlr-which-key";
+          # Optionally, pin the nixpkgs version to the one in your flake:
+          inputs.nixpkgs.follows = "nixpkgs"; # Replace "nixpkgs" with the name of your nixpkgs flake input
+        };
+      };
+      
+      # the rest of your flake, outputs, etc ...
+    }
+  ```
+</details>
+
+You can then use the package in your flake by referencing `inputs.wlr-which-key.packages.${pkgs.system}.wlr-which-key`.
+
+#### Home Manager (with flakes)
+
+<details>
+  <summary>Example module</summary>
+
+  ```nix
+  {
+    pkgs,
+    inputs,
+    ...
+  }:
+  {
+    imports = [
+      inputs.wlr-which-key.homeManagerModules.wlr-which-key
+    ];
+    programs.wlr-which-key = {
+      enable = true;
+      package = inputs.wlr-which-key.${pkgs.system}.wlr-which-key; # Optional, the default is the package the flake provides
+      # The following is equivelent to the example config, but in nix
+      settings = {
+        font = "JetBrainsMono Nerd Font 12";
+        background = "#282828d0";
+        color = "#fbf1c7";
+        border = "#8ec07c";
+        separator = " ➜ ";
+        border_width = 2;
+        corner_r = 10;
+        padding = 15; 
+        rows_per_column = 5;
+        column_padding = 25;
+
+        anchor = "center";
+        margin_right = 0;
+        margin_bottom = 0;
+        margin_left = 0;
+        margin_top = 0;
+
+        inhibit_compositor_keyboard_shortcuts = true;
+
+        menu = [
+          {
+            key = "p";
+            desc = "Power";
+            submenu = [
+              {
+                key = "s";
+                desc = "Sleep";
+                cmd = "systemctl suspend";
+              }
+              {
+                key = "r";
+                desc = "Reboot";
+                cmd = "reboot";
+              }
+              {
+                key = "o";
+                desc = "Off";
+                cmd = "poweroff";
+              }
+            ];
+          }
+          {
+            key = "l";
+            desc = "Laptop Screen";
+            submenu = [
+              {
+                key = "t";
+                desc = "Toggle On/Off";
+                cmd = "toggle-laptop-display.sh";
+              }
+              {
+                key = "s";
+                desc = "Scale";
+                submenu = [
+                  {
+                    key = "1";
+                    desc = "Set Scale to 1.0";
+                    cmd = "wlr-randr --output eDP-1 --scale 1";
+                  }
+                  {
+                    key = "2";
+                    desc = "Set Scale to 1.1";
+                    cmd = "wlr-randr --output eDP-1 --scale 1.1";
+                  }
+                  {
+                    key = "3";
+                    desc = "Set Scale to 1.2";
+                    cmd = "wlr-randr --output eDP-1 --scale 1.2";
+                  }
+                  {
+                    key = "4";
+                    desc = "Set Scale to 1.3";
+                    cmd = "wlr-randr --output eDP-1 --scale 1.3";
+                  }
+                ];
+              }
+            ];
+          }
+        ];
+      };
+    };
+  }
+  ```
+</details>
+
 ## Configuration
 
 Default config file: `$XDG_CONFIG_HOME/wlr-which-key/config.yaml` or `~/.config/wlr-which-key/config.yaml`. Run `wlr-which-key --help` for more info.
