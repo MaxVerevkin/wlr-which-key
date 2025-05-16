@@ -7,9 +7,11 @@ mod text;
 use std::collections::{HashMap, HashSet};
 use std::f64::consts::{FRAC_PI_2, PI, TAU};
 use std::io;
+use std::os::fd::{AsRawFd, RawFd};
 use std::os::unix::process::CommandExt;
 use std::process::{Command, Stdio};
 use std::sync::LazyLock;
+use std::time::Duration;
 
 use clap::Parser;
 use pangocairo::cairo;
@@ -24,6 +26,7 @@ use wayrs_protocols::wlr_layer_shell_unstable_v1::*;
 use wayrs_utils::keyboard::{Keyboard, KeyboardEvent, KeyboardHandler};
 use wayrs_utils::seats::{SeatHandler, Seats};
 use wayrs_utils::shm_alloc::{BufferSpec, ShmAlloc};
+use wayrs_utils::timer::Timer;
 
 #[derive(Debug, Parser)]
 #[command(author, version, about)]
@@ -94,6 +97,7 @@ fn main() -> anyhow::Result<()> {
         shm_alloc,
         seats,
         keyboards: Vec::new(),
+        kbd_repeat: None,
         outputs: Vec::new(),
         keyboard_shortcuts_inhibit_manager,
         keyboard_shortcuts_inhibitors: HashMap::new(),
@@ -115,8 +119,25 @@ fn main() -> anyhow::Result<()> {
 
     while !state.exit {
         conn.flush(IoMode::Blocking)?;
-        conn.recv_events(IoMode::Blocking)?;
-        conn.dispatch_events(&mut state);
+
+        poll(
+            conn.as_raw_fd(),
+            state.kbd_repeat.as_ref().map(|x| x.0.sleep()),
+        )?;
+
+        if let Some((timer, action)) = &mut state.kbd_repeat {
+            if timer.tick() {
+                eprintln!("tick!");
+                let action = action.clone();
+                state.handle_action(&mut conn, action);
+            }
+        }
+
+        match conn.recv_events(IoMode::NonBlocking) {
+            Ok(()) => conn.dispatch_events(&mut state),
+            Err(e) if e.kind() == io::ErrorKind::WouldBlock => (),
+            Err(e) => return Err(e.into()),
+        }
     }
 
     Ok(())
@@ -126,6 +147,7 @@ struct State {
     shm_alloc: ShmAlloc,
     seats: Seats,
     keyboards: Vec<Keyboard>,
+    kbd_repeat: Option<(Timer, menu::Action)>,
     outputs: Vec<Output>,
     keyboard_shortcuts_inhibit_manager: Option<ZwpKeyboardShortcutsInhibitManagerV1>,
     keyboard_shortcuts_inhibitors: HashMap<WlSeat, ZwpKeyboardShortcutsInhibitorV1>,
@@ -269,6 +291,40 @@ impl State {
             .attach(conn, Some(buffer.into_wl_buffer()), 0, 0);
         self.wl_surface.commit(conn);
     }
+
+    fn handle_action(&mut self, conn: &mut Connection<Self>, action: menu::Action) {
+        match action {
+            menu::Action::Quit => {
+                self.exit = true;
+                conn.break_dispatch_loop();
+            }
+            menu::Action::Exec { cmd, keep_open } => {
+                let mut proc = Command::new("sh");
+                proc.args(["-c", &cmd]);
+                proc.stdin(Stdio::null());
+                proc.stdout(Stdio::null());
+                // Safety: libc::daemon() is async-signal-safe
+                unsafe {
+                    proc.pre_exec(|| match libc::daemon(1, 0) {
+                        -1 => Err(io::Error::other("Failed to detach new process")),
+                        _ => Ok(()),
+                    });
+                }
+                proc.spawn().unwrap().wait().unwrap();
+                if !keep_open {
+                    self.exit = true;
+                    conn.break_dispatch_loop();
+                }
+            }
+            menu::Action::Submenu(page) => {
+                self.menu.set_page(page);
+                self.width = self.menu.width(&self.config) as u32;
+                self.height = self.menu.height(&self.config) as u32;
+                self.layer_surface.set_size(conn, self.width, self.height);
+                self.wl_surface.commit(conn);
+            }
+        }
+    }
 }
 
 impl SeatHandler for State {
@@ -316,41 +372,18 @@ impl KeyboardHandler for State {
     }
 
     fn key_presed(&mut self, conn: &mut Connection<Self>, event: KeyboardEvent) {
+        self.kbd_repeat = None;
         if let Some(action) = self.menu.get_action(&event.xkb_state, event.keysym) {
-            match action {
-                menu::Action::Quit => {
-                    self.exit = true;
-                    conn.break_dispatch_loop();
-                }
-                menu::Action::Exec { cmd, keep_open } => {
-                    let mut proc = Command::new("sh");
-                    proc.args(["-c", &cmd]);
-                    proc.stdin(Stdio::null());
-                    proc.stdout(Stdio::null());
-                    // Safety: libc::daemon() is async-signal-safe
-                    unsafe {
-                        proc.pre_exec(|| match libc::daemon(1, 0) {
-                            -1 => Err(io::Error::other("Failed to detach new process")),
-                            _ => Ok(()),
-                        });
-                    }
-                    proc.spawn().unwrap().wait().unwrap();
-                    if !keep_open {
-                        self.exit = true;
-                    }
-                }
-                menu::Action::Submenu(page) => {
-                    self.menu.set_page(page);
-                    self.width = self.menu.width(&self.config) as u32;
-                    self.height = self.menu.height(&self.config) as u32;
-                    self.layer_surface.set_size(conn, self.width, self.height);
-                    self.wl_surface.commit(conn);
-                }
+            if let Some(repeat) = event.repeat_info {
+                self.kbd_repeat = Some((Timer::new(repeat.delay, repeat.interval), action.clone()));
             }
+            self.handle_action(conn, action);
         }
     }
 
-    fn key_released(&mut self, _: &mut Connection<Self>, _: KeyboardEvent) {}
+    fn key_released(&mut self, _: &mut Connection<Self>, _: KeyboardEvent) {
+        self.kbd_repeat = None;
+    }
 }
 
 fn wl_registry_cb(conn: &mut Connection<State>, state: &mut State, event: &wl_registry::Event) {
@@ -432,5 +465,24 @@ fn layer_surface_cb(ctx: EventCtx<State, ZwlrLayerSurfaceV1>) {
             ctx.conn.break_dispatch_loop();
         }
         _ => (),
+    }
+}
+
+fn poll(fd: RawFd, timeout: Option<Duration>) -> io::Result<()> {
+    let mut fds = [libc::pollfd {
+        fd,
+        events: libc::POLLIN,
+        revents: 0,
+    }];
+    let res = unsafe {
+        libc::poll(
+            fds.as_mut_ptr(),
+            1,
+            timeout.map_or(-1, |t| t.as_millis() as _),
+        )
+    };
+    match res {
+        -1 => Err(io::Error::last_os_error()),
+        _ => Ok(()),
     }
 }
