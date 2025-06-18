@@ -17,15 +17,15 @@ pkgs.rustPlatform.buildRustPackage rec {
   doCheck = false;
 
   nativeBuildInputs = with pkgs; [
-    installShellFiles
     pkg-config
   ];
-  buildInputs = with pkgs; [
-    openssl
-    pkg-config
 
-    # rust vmm uses latest stable and oxalica tend to lag behind.break
-    # so we temporary force use of beta.
+  buildInputs = with pkgs; [
+    cairo
+    glib
+    libxkbcommon
+    pango
+
     (rust-bin.fromRustupToolchainFile ./rust-toolchain.toml)
   ];
 }
