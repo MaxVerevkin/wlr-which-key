@@ -5,7 +5,7 @@
 }:
 pkgs.rustPlatform.buildRustPackage rec {
   pname = "wlr-which-key";
-  version = (builtins.fromTOML (lib.readFile ./${pname}/Cargo.toml)).package.version;
+  version = (builtins.fromTOML (lib.readFile ./Cargo.toml)).package.version;
 
   src = ./.;
   cargoLock = {
