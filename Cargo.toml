@@ -1,6 +1,6 @@
 [package]
 name = "wlr-which-key"
-version = "1.1.0"
+version = "1.2.0"
 edition = "2021"
 description = "Keymap manager for wlroots-based compositors"
 repository = "https://github.com/MaxVerevkin/wlr-which-key/"
