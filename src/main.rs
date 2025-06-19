@@ -62,7 +62,7 @@ fn main() -> anyhow::Result<()> {
             None
         };
 
-    let seats = Seats::bind(&mut conn);
+    let seats = Seats::new(&mut conn);
     let shm_alloc = ShmAlloc::bind(&mut conn)?;
 
     let width = menu.width(&config) as u32;
@@ -75,7 +75,7 @@ fn main() -> anyhow::Result<()> {
         wl_surface,
         None,
         zwlr_layer_shell_v1::Layer::Overlay,
-        wayrs_client::cstr!("wlr_which_key").into(),
+        c"wlr_which_key".to_owned(),
         layer_surface_cb,
     );
     layer_surface.set_anchor(&mut conn, config.anchor.into());
