@@ -55,12 +55,10 @@ fn main() -> anyhow::Result<()> {
 
     let wl_compositor: WlCompositor = conn.bind_singleton(4..=6)?;
     let wlr_layer_shell: ZwlrLayerShellV1 = conn.bind_singleton(2)?;
-    let keyboard_shortcuts_inhibit_manager: Option<ZwpKeyboardShortcutsInhibitManagerV1> =
-        if config.inhibit_compositor_keyboard_shortcuts {
-            Some(conn.bind_singleton(1)?)
-        } else {
-            None
-        };
+    let keyboard_shortcuts_inhibit_manager = match config.inhibit_compositor_keyboard_shortcuts {
+        true => Some(conn.bind_singleton(1)?),
+        false => None,
+    };
 
     let seats = Seats::new(&mut conn);
     let shm_alloc = ShmAlloc::bind(&mut conn)?;
@@ -127,7 +125,6 @@ fn main() -> anyhow::Result<()> {
 
         if let Some((timer, action)) = &mut state.kbd_repeat {
             if timer.tick() {
-                eprintln!("tick!");
                 let action = action.clone();
                 state.handle_action(&mut conn, action);
             }
@@ -333,7 +330,7 @@ impl SeatHandler for State {
     }
 
     fn seat_added(&mut self, conn: &mut Connection<Self>, seat: WlSeat) {
-        if let Some(inhibit_manager) = &self.keyboard_shortcuts_inhibit_manager {
+        if let Some(inhibit_manager) = self.keyboard_shortcuts_inhibit_manager {
             self.keyboard_shortcuts_inhibitors.insert(
                 seat,
                 inhibit_manager.inhibit_shortcuts(conn, self.wl_surface, seat),
@@ -342,10 +339,9 @@ impl SeatHandler for State {
     }
 
     fn seat_removed(&mut self, conn: &mut Connection<Self>, seat: WlSeat) {
-        let Some(inhibitor) = self.keyboard_shortcuts_inhibitors.remove(&seat) else {
-            return;
-        };
-        inhibitor.destroy(conn);
+        if let Some(inhibitor) = self.keyboard_shortcuts_inhibitors.remove(&seat) {
+            inhibitor.destroy(conn);
+        }
     }
 
     fn keyboard_added(&mut self, conn: &mut Connection<Self>, seat: WlSeat) {
