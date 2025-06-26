@@ -12,6 +12,13 @@ Keymap manager for wlroots-based compositors. Inspired by [which-key.nvim](https
 cargo install wlr-which-key --locked
 ```
 
+## Usage
+
+```sh
+wlr-which-key [config_name]                    # Start with default menu
+wlr-which-key --initial-keys "p s"             # Navigate to submenu or execute command
+```
+
 ## Configuration
 
 Default config file: `$XDG_CONFIG_HOME/wlr-which-key/config.yaml` or `~/.config/wlr-which-key/config.yaml`. Run `wlr-which-key --help` for more info.

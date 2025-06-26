@@ -28,9 +28,9 @@ impl ModifierState {
 
 #[derive(Clone, PartialEq, Eq, Hash)]
 pub struct SingleKey {
-    keysym: xkb::Keysym,
-    repr: String,
-    modifiers: ModifierState,
+    pub keysym: xkb::Keysym,
+    pub repr: String,
+    pub modifiers: ModifierState,
 }
 
 impl Key {
