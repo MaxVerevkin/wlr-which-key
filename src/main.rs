@@ -13,20 +13,23 @@ use std::process::{Command, Stdio};
 use std::sync::LazyLock;
 use std::time::Duration;
 
+use anyhow::bail;
 use clap::Parser;
 use pangocairo::cairo;
 
 use wayrs_client::object::ObjectId;
 use wayrs_client::protocol::*;
 use wayrs_client::proxy::Proxy;
-use wayrs_client::{global::*, EventCtx};
 use wayrs_client::{Connection, IoMode};
+use wayrs_client::{EventCtx, global::*};
 use wayrs_protocols::keyboard_shortcuts_inhibit_unstable_v1::*;
 use wayrs_protocols::wlr_layer_shell_unstable_v1::*;
 use wayrs_utils::keyboard::{Keyboard, KeyboardEvent, KeyboardHandler};
 use wayrs_utils::seats::{SeatHandler, Seats};
 use wayrs_utils::shm_alloc::{BufferSpec, ShmAlloc};
 use wayrs_utils::timer::Timer;
+
+use crate::key::ModifierState;
 
 #[derive(Debug, Parser)]
 #[command(author, version, about)]
@@ -39,6 +42,14 @@ struct Args {
     /// For example, to use ~/.config/wlr-which-key/print-srceen.yaml, set this to
     /// "print-srceen". An absolute path can be used too, extension is optional.
     config: Option<String>,
+
+    /// Initial key sequence to navigate to a specific submenu on startup.
+    ///
+    /// Provide a sequence of keys separated by spaces to navigate directly to a submenu.
+    /// For example, "p s" would navigate to the submenu at key 'p', then 's'.
+    /// The application will show an error and exit if the key sequence is invalid.
+    #[arg(long, short = 'k')]
+    initial_keys: Option<String>,
 }
 
 static DEBUG_LAYOUT: LazyLock<bool> =
@@ -47,7 +58,23 @@ static DEBUG_LAYOUT: LazyLock<bool> =
 fn main() -> anyhow::Result<()> {
     let args = Args::parse();
     let config = config::Config::new(args.config.as_deref().unwrap_or("config"))?;
-    let menu = menu::Menu::new(&config)?;
+    let mut menu = menu::Menu::new(&config)?;
+
+    if let Some(initial_keys) = &args.initial_keys
+        && let Some(initial_action) = menu.navigate_to_key_sequence(initial_keys)?
+    {
+        match initial_action {
+            menu::Action::Submenu(_) => unreachable!(),
+            menu::Action::Quit => return Ok(()),
+            menu::Action::Exec { cmd, keep_open } => {
+                if keep_open {
+                    bail!("Initial key sequence cannot trigger an action with keep_open=true");
+                }
+                exec(&cmd);
+                return Ok(());
+            }
+        }
+    }
 
     let mut conn = Connection::connect()?;
     conn.blocking_roundtrip()?;
@@ -123,11 +150,11 @@ fn main() -> anyhow::Result<()> {
             state.kbd_repeat.as_ref().map(|x| x.0.sleep()),
         )?;
 
-        if let Some((timer, action)) = &mut state.kbd_repeat {
-            if timer.tick() {
-                let action = action.clone();
-                state.handle_action(&mut conn, action);
-            }
+        if let Some((timer, action)) = &mut state.kbd_repeat
+            && timer.tick()
+        {
+            let action = action.clone();
+            state.handle_action(&mut conn, action);
         }
 
         match conn.recv_events(IoMode::NonBlocking) {
@@ -296,18 +323,7 @@ impl State {
                 conn.break_dispatch_loop();
             }
             menu::Action::Exec { cmd, keep_open } => {
-                let mut proc = Command::new("sh");
-                proc.args(["-c", &cmd]);
-                proc.stdin(Stdio::null());
-                proc.stdout(Stdio::null());
-                // Safety: libc::daemon() is async-signal-safe
-                unsafe {
-                    proc.pre_exec(|| match libc::daemon(1, 0) {
-                        -1 => Err(io::Error::other("Failed to detach new process")),
-                        _ => Ok(()),
-                    });
-                }
-                proc.spawn().unwrap().wait().unwrap();
+                exec(&cmd);
                 if !keep_open {
                     self.exit = true;
                     conn.break_dispatch_loop();
@@ -369,7 +385,8 @@ impl KeyboardHandler for State {
 
     fn key_presed(&mut self, conn: &mut Connection<Self>, event: KeyboardEvent) {
         self.kbd_repeat = None;
-        if let Some(action) = self.menu.get_action(&event.xkb_state, event.keysym) {
+        let modifiers = ModifierState::from_xkb_state(&event.xkb_state);
+        if let Some(action) = self.menu.get_action(modifiers, event.keysym) {
             if let Some(repeat) = event.repeat_info {
                 self.kbd_repeat = Some((Timer::new(repeat.delay, repeat.interval), action.clone()));
             }
@@ -481,4 +498,19 @@ fn poll(fd: RawFd, timeout: Option<Duration>) -> io::Result<()> {
         -1 => Err(io::Error::last_os_error()),
         _ => Ok(()),
     }
+}
+
+fn exec(cmd: &str) {
+    let mut proc = Command::new("sh");
+    proc.args(["-c", cmd]);
+    proc.stdin(Stdio::null());
+    proc.stdout(Stdio::null());
+    // Safety: libc::daemon() is async-signal-safe
+    unsafe {
+        proc.pre_exec(|| match libc::daemon(1, 0) {
+            -1 => Err(io::Error::other("Failed to detach new process")),
+            _ => Ok(()),
+        });
+    }
+    proc.spawn().unwrap().wait().unwrap();
 }

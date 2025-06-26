@@ -7,7 +7,7 @@ use std::env;
 use std::fs::read_to_string;
 use std::path::PathBuf;
 
-use anyhow::{bail, Context, Result};
+use anyhow::{Context, Result, bail};
 use serde::Deserialize;
 use smart_default::SmartDefault;
 
@@ -68,7 +68,9 @@ impl Config {
             Ok(config) => Ok(config),
             Err(err) => match serde_yaml::from_str::<compat::Config>(&config_str) {
                 Ok(compat) => {
-                    eprintln!("Warning: using the old config format, which will be removed in a future version.");
+                    eprintln!(
+                        "Warning: using the old config format, which will be removed in a future version."
+                    );
                     Ok(compat.into())
                 }
                 Err(_compat_err) => Err(err),

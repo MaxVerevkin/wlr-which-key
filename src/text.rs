@@ -1,4 +1,4 @@
-use crate::{color::Color, DEBUG_LAYOUT};
+use crate::{DEBUG_LAYOUT, color::Color};
 use anyhow::Result;
 use pango::FontDescription;
 use pangocairo::{cairo, pango};
