@@ -24,7 +24,7 @@ use wayrs_client::{Connection, IoMode};
 use wayrs_client::{EventCtx, global::*};
 use wayrs_protocols::keyboard_shortcuts_inhibit_unstable_v1::*;
 use wayrs_protocols::wlr_layer_shell_unstable_v1::*;
-use wayrs_utils::keyboard::{Keyboard, KeyboardEvent, KeyboardHandler};
+use wayrs_utils::keyboard::{Keyboard, KeyboardEvent, KeyboardHandler, xkb};
 use wayrs_utils::seats::{SeatHandler, Seats};
 use wayrs_utils::shm_alloc::{BufferSpec, ShmAlloc};
 use wayrs_utils::timer::Timer;
@@ -386,7 +386,28 @@ impl KeyboardHandler for State {
     fn key_presed(&mut self, conn: &mut Connection<Self>, event: KeyboardEvent) {
         self.kbd_repeat = None;
         let modifiers = ModifierState::from_xkb_state(&event.xkb_state);
-        if let Some(action) = self.menu.get_action(modifiers, event.keysym) {
+        let action = if let Some(action) = self.menu.get_action(modifiers, event.keysym) {
+            Some(action)
+        } else if self.config.auto_kbd_layout {
+            let mask = XkbMaskState::new(&event.xkb_state);
+            let mut action = None;
+            // Try each layout
+            for layout in 0..event.xkb_state.get_keymap().num_layouts() {
+                mask.with_locked_layout(layout).apply(&event.xkb_state);
+                if let Some(a) = self
+                    .menu
+                    .get_action(modifiers, event.xkb_state.key_get_one_sym(event.keycode))
+                {
+                    action = Some(a);
+                    break;
+                }
+            }
+            mask.apply(&event.xkb_state); // Restore the state
+            action
+        } else {
+            None
+        };
+        if let Some(action) = action {
             if let Some(repeat) = event.repeat_info {
                 self.kbd_repeat = Some((Timer::new(repeat.delay, repeat.interval), action.clone()));
             }
@@ -513,4 +534,48 @@ fn exec(cmd: &str) {
         });
     }
     proc.spawn().unwrap().wait().unwrap();
+}
+
+#[derive(Clone, Copy)]
+struct XkbMaskState {
+    depressed_mods: u32,
+    latched_mods: u32,
+    locked_mods: u32,
+    depressed_layout: u32,
+    latched_layout: u32,
+    locked_layout: u32,
+}
+
+impl XkbMaskState {
+    fn new(xkb_state: &xkb::State) -> Self {
+        Self {
+            depressed_mods: xkb_state.serialize_mods(xkb::STATE_MODS_DEPRESSED),
+            latched_mods: xkb_state.serialize_mods(xkb::STATE_MODS_LATCHED),
+            locked_mods: xkb_state.serialize_mods(xkb::STATE_MODS_LOCKED),
+            depressed_layout: xkb_state.serialize_layout(xkb::STATE_LAYOUT_DEPRESSED),
+            latched_layout: xkb_state.serialize_layout(xkb::STATE_LAYOUT_LATCHED),
+            locked_layout: xkb_state.serialize_layout(xkb::STATE_LAYOUT_LOCKED),
+        }
+    }
+
+    fn with_locked_layout(&self, locked_layout: u32) -> Self {
+        Self {
+            locked_layout,
+            ..*self
+        }
+    }
+
+    fn apply(&self, xkb_state: &xkb::State) {
+        // Hack: this is just ref counting, no actual cloning. `update_mask` should probably just
+        // accept `&self` instead of `&mut self`.
+        let mut xkb_state = xkb_state.clone();
+        xkb_state.update_mask(
+            self.depressed_mods,
+            self.latched_mods,
+            self.locked_mods,
+            self.depressed_layout,
+            self.latched_layout,
+            self.locked_layout,
+        );
+    }
 }

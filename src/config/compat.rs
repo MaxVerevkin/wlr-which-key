@@ -100,6 +100,7 @@ impl From<Config> for super::Config {
             column_padding: None,
             menu: map_entries(value.menu),
             inhibit_compositor_keyboard_shortcuts: false,
+            auto_kbd_layout: false,
         }
     }
 }

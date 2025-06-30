@@ -45,6 +45,7 @@ pub struct Config {
     pub column_padding: Option<f64>,
 
     pub inhibit_compositor_keyboard_shortcuts: bool,
+    pub auto_kbd_layout: bool,
 
     pub menu: Vec<Entry>,
 }

@@ -55,6 +55,9 @@ margin_top: 0
 # Default is `false`.
 inhibit_compositor_keyboard_shortcuts: true
 
+# Try to guess the correct keyboard layout to use. Default is `false`.
+auto_kbd_layout: true
+
 menu:
   - key: "p"
     desc: Power
