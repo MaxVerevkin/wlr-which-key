@@ -2,6 +2,7 @@ mod anchor;
 mod compat;
 mod entry;
 mod font;
+mod namespace;
 
 use std::env;
 use std::fs::read_to_string;
@@ -14,6 +15,7 @@ use smart_default::SmartDefault;
 pub use self::anchor::ConfigAnchor;
 pub use self::entry::Entry;
 pub use self::font::Font;
+pub use self::namespace::Namespace;
 use crate::color::Color;
 
 #[derive(Deserialize, SmartDefault)]
@@ -48,6 +50,9 @@ pub struct Config {
     pub auto_kbd_layout: bool,
 
     pub menu: Vec<Entry>,
+
+    #[default(Namespace::new(c"wlr_which_key".to_owned()))]
+    pub namespace: Namespace,
 }
 
 impl Config {

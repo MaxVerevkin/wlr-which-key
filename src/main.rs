@@ -100,7 +100,7 @@ fn main() -> anyhow::Result<()> {
         wl_surface,
         None,
         zwlr_layer_shell_v1::Layer::Overlay,
-        c"wlr_which_key".to_owned(),
+        config.namespace.0.to_owned(),
         layer_surface_cb,
     );
     layer_surface.set_anchor(&mut conn, config.anchor.into());
