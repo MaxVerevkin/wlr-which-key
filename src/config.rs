@@ -51,6 +51,7 @@ pub struct Config {
 
     pub menu: Vec<Entry>,
 
+    #[default(Namespace::new(c"wlr_which_key".to_owned()))]
     pub namespace: Namespace,
 }
 
