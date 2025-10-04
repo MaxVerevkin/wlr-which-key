@@ -101,6 +101,7 @@ impl From<Config> for super::Config {
             menu: map_entries(value.menu),
             inhibit_compositor_keyboard_shortcuts: false,
             auto_kbd_layout: false,
+            namespace: "wlr_which_key".to_owned(),
         }
     }
 }

@@ -48,6 +48,8 @@ pub struct Config {
     pub auto_kbd_layout: bool,
 
     pub menu: Vec<Entry>,
+
+    pub namespace: String,
 }
 
 impl Config {
