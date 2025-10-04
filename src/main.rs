@@ -6,7 +6,6 @@ mod text;
 
 use std::collections::{HashMap, HashSet};
 use std::f64::consts::{FRAC_PI_2, PI, TAU};
-use std::ffi::CString;
 use std::io;
 use std::os::fd::{AsRawFd, RawFd};
 use std::os::unix::process::CommandExt;
@@ -101,7 +100,7 @@ fn main() -> anyhow::Result<()> {
         wl_surface,
         None,
         zwlr_layer_shell_v1::Layer::Overlay,
-        CString::new(config.namespace.to_owned()).unwrap(),
+        config.namespace.0.to_owned(),
         layer_surface_cb,
     );
     layer_surface.set_anchor(&mut conn, config.anchor.into());

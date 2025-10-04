@@ -5,7 +5,7 @@ use smart_default::SmartDefault;
 use crate::color::Color;
 use crate::key::SingleKey;
 
-use super::{ConfigAnchor, Font};
+use super::{ConfigAnchor, Font, Namespace};
 
 #[derive(Deserialize, Default)]
 #[serde(transparent)]
@@ -101,7 +101,7 @@ impl From<Config> for super::Config {
             menu: map_entries(value.menu),
             inhibit_compositor_keyboard_shortcuts: false,
             auto_kbd_layout: false,
-            namespace: "wlr_which_key".to_owned(),
+            namespace: Namespace::new(c"wlr_which_key".to_owned()),
         }
     }
 }

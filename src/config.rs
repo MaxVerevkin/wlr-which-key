@@ -2,6 +2,7 @@ mod anchor;
 mod compat;
 mod entry;
 mod font;
+mod namespace;
 
 use std::env;
 use std::fs::read_to_string;
@@ -14,6 +15,7 @@ use smart_default::SmartDefault;
 pub use self::anchor::ConfigAnchor;
 pub use self::entry::Entry;
 pub use self::font::Font;
+pub use self::namespace::Namespace;
 use crate::color::Color;
 
 #[derive(Deserialize, SmartDefault)]
@@ -49,7 +51,7 @@ pub struct Config {
 
     pub menu: Vec<Entry>,
 
-    pub namespace: String,
+    pub namespace: Namespace,
 }
 
 impl Config {
