@@ -39,8 +39,8 @@ struct Args {
     /// By default, $XDG_CONFIG_HOME/wlr-which-key/config.yaml or
     /// ~/.config/wlr-which-key/config.yaml is used.
     ///
-    /// For example, to use ~/.config/wlr-which-key/print-srceen.yaml, set this to
-    /// "print-srceen". An absolute path can be used too, extension is optional.
+    /// For example, to use ~/.config/wlr-which-key/print-screen.yaml, set this to
+    /// "print-screen". An absolute path can be used too, extension is optional.
     config: Option<String>,
 
     /// Initial key sequence to navigate to a specific submenu on startup.
