@@ -23,7 +23,7 @@ pub enum Entry {
 #[serde(deny_unknown_fields)]
 struct RawEntry {
     key: Key,
-    desc: String,
+    desc: Option<String>,
     cmd: Option<String>,
     keep_open: Option<bool>,
     submenu: Option<Vec<Entry>>,
@@ -43,7 +43,7 @@ impl TryFrom<RawEntry> for Entry {
             Ok(Self::Recursive {
                 key: value.key,
                 submenu,
-                desc: value.desc,
+                desc: value.desc.unwrap_or_default(),
             })
         } else {
             Ok(Self::Cmd {
@@ -51,7 +51,7 @@ impl TryFrom<RawEntry> for Entry {
                 cmd: value
                     .cmd
                     .context("either or 'submenu' or 'cmd' is required")?,
-                desc: value.desc,
+                desc: value.desc.unwrap_or_default(),
                 keep_open: value.keep_open.unwrap_or(false),
             })
         }
