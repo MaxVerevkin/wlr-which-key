@@ -61,6 +61,9 @@ inhibit_compositor_keyboard_shortcuts: true
 # Try to guess the correct keyboard layout to use. Default is `false`.
 auto_kbd_layout: true
 
+# Exits if the key isn't bound in the current submenu. Default is `false`.
+exit_if_no_match: true
+
 menu:
   - key: "p"
     desc: Power

@@ -48,6 +48,7 @@ pub struct Config {
 
     pub inhibit_compositor_keyboard_shortcuts: bool,
     pub auto_kbd_layout: bool,
+    pub exit_if_no_match: bool,
 
     pub menu: Vec<Entry>,
 
