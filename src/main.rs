@@ -336,7 +336,8 @@ impl State {
                 self.layer_surface.set_size(conn, self.width, self.height);
                 self.wl_surface.commit(conn);
             }
-        }
+        };
+        self.draw(conn);
     }
 }
 
