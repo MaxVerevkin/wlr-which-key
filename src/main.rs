@@ -50,6 +50,13 @@ struct Args {
     /// The application will show an error and exit if the key sequence is invalid.
     #[arg(long, short = 'k')]
     initial_keys: Option<String>,
+
+    /// Validate config file, then exit.
+    ///
+    /// Useful for checking a configuration before deploying it via a dotfiles management
+    /// like home-manager.
+    #[arg(long, default_value_t = false)]
+    only_validate_config: bool,
 }
 
 static DEBUG_LAYOUT: LazyLock<bool> =
@@ -58,6 +65,11 @@ static DEBUG_LAYOUT: LazyLock<bool> =
 fn main() -> anyhow::Result<()> {
     let args = Args::parse();
     let config = config::Config::new(args.config.as_deref().unwrap_or("config"))?;
+    if args.only_validate_config {
+        println!("Configuration is valid, no errors were detected.");
+        return Ok(());
+    }
+
     let mut menu = menu::Menu::new(&config)?;
 
     if let Some(initial_keys) = &args.initial_keys
