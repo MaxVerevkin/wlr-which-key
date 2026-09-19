@@ -19,6 +19,8 @@ pub struct Menu {
 struct MenuPage {
     item_height: f64,
     columns: Vec<MenuColumn>,
+    /// Items that respond to their keys but are not drawn.
+    hidden_items: Vec<MenuItem>,
     parent: Option<usize>,
 }
 
@@ -75,39 +77,58 @@ impl Menu {
         self.pages.push(MenuPage {
             item_height: self.separator.height,
             columns: Vec::new(),
+            hidden_items: Vec::new(),
             parent,
         });
 
-        for (entry_i, entry) in entries.iter().enumerate() {
-            let item = match entry {
+        let mut visible_i = 0;
+        for entry in entries {
+            let (item, hidden) = match entry {
                 config::Entry::Cmd {
                     key,
                     cmd,
                     desc,
                     keep_open,
-                } => MenuItem {
-                    action: Action::Exec {
-                        cmd: cmd.into(),
-                        keep_open: *keep_open,
+                    hidden,
+                } => (
+                    MenuItem {
+                        action: Action::Exec {
+                            cmd: cmd.into(),
+                            keep_open: *keep_open,
+                        },
+                        key_comp: ComputedText::new(key.to_string(), context, &config.font.0),
+                        val_comp: ComputedText::new(desc, context, &config.font.0),
+                        key: key.clone(),
                     },
-                    key_comp: ComputedText::new(key.to_string(), context, &config.font.0),
-                    val_comp: ComputedText::new(desc, context, &config.font.0),
-                    key: key.clone(),
-                },
+                    *hidden,
+                ),
                 config::Entry::Recursive {
                     key,
                     submenu: entries,
                     desc,
+                    hidden,
                 } => {
                     let new_page = self.push_page(context, entries, config, Some(cur_page))?;
-                    MenuItem {
-                        action: Action::Submenu(new_page),
-                        key_comp: ComputedText::new(key.to_string(), context, &config.font.0),
-                        val_comp: ComputedText::new(format!("+{desc}"), context, &config.font.0),
-                        key: key.clone(),
-                    }
+                    (
+                        MenuItem {
+                            action: Action::Submenu(new_page),
+                            key_comp: ComputedText::new(key.to_string(), context, &config.font.0),
+                            val_comp: ComputedText::new(
+                                format!("+{desc}"),
+                                context,
+                                &config.font.0,
+                            ),
+                            key: key.clone(),
+                        },
+                        *hidden,
+                    )
                 }
             };
+
+            if hidden {
+                self.pages[cur_page].hidden_items.push(item);
+                continue;
+            }
 
             let height = f64::max(item.key_comp.height, item.val_comp.height);
             if height > self.pages[cur_page].item_height {
@@ -116,7 +137,8 @@ impl Menu {
 
             let col_i = config
                 .rows_per_column
-                .map_or(0, |rows_per_column| entry_i / rows_per_column);
+                .map_or(0, |rows_per_column| visible_i / rows_per_column);
+            visible_i += 1;
 
             if col_i == self.pages[cur_page].columns.len() {
                 self.pages[cur_page].columns.push(MenuColumn {
@@ -130,6 +152,10 @@ impl Menu {
                 col.val_col_width = col.val_col_width.max(item.val_comp.width);
                 col.items.push(item);
             }
+        }
+
+        if self.pages[cur_page].columns.is_empty() {
+            bail!("Menu pages must have at least one entry that is not hidden");
         }
 
         Ok(cur_page)
@@ -226,11 +252,12 @@ impl Menu {
     pub fn get_action(&self, modifiers: ModifierState, sym: xkb::Keysym) -> Option<Action> {
         let page = &self.pages[self.cur_page];
 
-        let action = page.columns.iter().find_map(|col| {
-            col.items
-                .iter()
-                .find_map(|i| i.key.matches(sym, modifiers).then(|| i.action.clone()))
-        });
+        let action = page
+            .columns
+            .iter()
+            .flat_map(|col| &col.items)
+            .chain(&page.hidden_items)
+            .find_map(|i| i.key.matches(sym, modifiers).then(|| i.action.clone()));
         if action.is_some() {
             return action;
         }

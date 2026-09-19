@@ -11,11 +11,13 @@ pub enum Entry {
         cmd: String,
         desc: String,
         keep_open: bool,
+        hidden: bool,
     },
     Recursive {
         key: Key,
         submenu: Vec<Self>,
         desc: String,
+        hidden: bool,
     },
 }
 
@@ -27,6 +29,8 @@ struct RawEntry {
     cmd: Option<String>,
     keep_open: Option<bool>,
     submenu: Option<Vec<Entry>>,
+    #[serde(default)]
+    hidden: bool,
 }
 
 impl TryFrom<RawEntry> for Entry {
@@ -44,6 +48,7 @@ impl TryFrom<RawEntry> for Entry {
                 key: value.key,
                 submenu,
                 desc: value.desc,
+                hidden: value.hidden,
             })
         } else {
             Ok(Self::Cmd {
@@ -53,6 +58,7 @@ impl TryFrom<RawEntry> for Entry {
                     .context("either or 'submenu' or 'cmd' is required")?,
                 desc: value.desc,
                 keep_open: value.keep_open.unwrap_or(false),
+                hidden: value.hidden,
             })
         }
     }

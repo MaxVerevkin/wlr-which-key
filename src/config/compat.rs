@@ -72,11 +72,13 @@ impl From<Config> for super::Config {
                         cmd,
                         desc,
                         keep_open,
+                        hidden: false,
                     },
                     Entry::Recursive { submenu, desc } => super::Entry::Recursive {
                         key: key.into(),
                         submenu: map_entries(submenu),
                         desc,
+                        hidden: false,
                     },
                 })
                 .collect()

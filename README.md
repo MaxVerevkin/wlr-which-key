@@ -28,6 +28,8 @@ Keybindings may be single characters (e.g. `a`, `B`) or [xkb key labels](https:/
 When executed a command will normally end the `wlr_which_key` process. If you want certain commands to keep the UI open after they execute then
 configure those specific commands with (`keep_open: true`).
 
+An entry can be hidden from the menu with `hidden: true`. It is not drawn and takes no space in the layout, but its key still works (e.g. a hidden `q` entry to exit). Every menu page must have at least one entry that is not hidden.
+
 Example config:
 
 ```yaml
