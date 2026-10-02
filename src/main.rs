@@ -39,8 +39,8 @@ struct Args {
     /// By default, $XDG_CONFIG_HOME/wlr-which-key/config.yaml or
     /// ~/.config/wlr-which-key/config.yaml is used.
     ///
-    /// For example, to use ~/.config/wlr-which-key/print-srceen.yaml, set this to
-    /// "print-srceen". An absolute path can be used too, extension is optional.
+    /// For example, to use ~/.config/wlr-which-key/print-screen.yaml, set this to
+    /// "print-screen". An absolute path can be used too, extension is optional.
     config: Option<String>,
 
     /// Initial key sequence to navigate to a specific submenu on startup.
@@ -50,6 +50,13 @@ struct Args {
     /// The application will show an error and exit if the key sequence is invalid.
     #[arg(long, short = 'k')]
     initial_keys: Option<String>,
+
+    #[arg(long)]
+    /// The name of the theme file to use.
+    ///
+    /// Either the name of the file (with or without the yaml extension) can be specified, which is
+    /// resolved relative to the default configuration directory, or an absolute path can be used.
+    theme: Option<String>,
 }
 
 static DEBUG_LAYOUT: LazyLock<bool> =
@@ -57,7 +64,16 @@ static DEBUG_LAYOUT: LazyLock<bool> =
 
 fn main() -> anyhow::Result<()> {
     let args = Args::parse();
-    let config = config::Config::new(args.config.as_deref().unwrap_or("config"))?;
+    let mut config_builder =
+        config::ConfigBuilder::new(args.config.as_deref().unwrap_or("config"))?;
+
+    if let Some(theme) = args.theme.as_deref() {
+        let theme = config::ThemeBuilder::new(theme)?;
+
+        config_builder.with_theme(theme);
+    }
+
+    let config = config_builder.build();
     let mut menu = menu::Menu::new(&config)?;
 
     if let Some(initial_keys) = &args.initial_keys
@@ -103,14 +119,14 @@ fn main() -> anyhow::Result<()> {
         config.namespace.0.to_owned(),
         layer_surface_cb,
     );
-    layer_surface.set_anchor(&mut conn, config.anchor.into());
+    layer_surface.set_anchor(&mut conn, config.theme.anchor.into());
     layer_surface.set_size(&mut conn, width, height);
     layer_surface.set_margin(
         &mut conn,
-        config.margin_top,
-        config.margin_right,
-        config.margin_bottom,
-        config.margin_left,
+        config.theme.margin_top,
+        config.theme.margin_right,
+        config.theme.margin_bottom,
+        config.theme.margin_left,
     );
     layer_surface.set_keyboard_interactivity(
         &mut conn,
@@ -267,8 +283,8 @@ impl State {
         cairo_ctx.restore().unwrap();
 
         cairo_ctx.new_sub_path();
-        let half_border = self.config.border_width * 0.5;
-        let r = self.config.corner_r;
+        let half_border = self.config.theme.border_width * 0.5;
+        let r = self.config.theme.corner_r;
         cairo_ctx.arc(r + half_border, r + half_border, r, PI, 3.0 * FRAC_PI_2);
         cairo_ctx.arc(
             width_f - r - half_border,
@@ -292,10 +308,10 @@ impl State {
             PI,
         );
         cairo_ctx.close_path();
-        self.config.background.apply(&cairo_ctx);
+        self.config.theme.background.apply(&cairo_ctx);
         cairo_ctx.fill_preserve().unwrap();
-        self.config.border.apply(&cairo_ctx);
-        cairo_ctx.set_line_width(self.config.border_width);
+        self.config.theme.border.apply(&cairo_ctx);
+        cairo_ctx.set_line_width(self.config.theme.border_width);
         cairo_ctx.stroke().unwrap();
 
         // draw our menu

@@ -51,7 +51,7 @@ impl Menu {
         let mut this = Self {
             pages: Vec::new(),
             cur_page: 0,
-            separator: ComputedText::new(&config.separator, &context, &config.font.0),
+            separator: ComputedText::new(&config.theme.separator, &context, &config.theme.font.0),
         };
 
         this.push_page(&context, &config.menu, config, None)?;
@@ -90,8 +90,8 @@ impl Menu {
                         cmd: cmd.into(),
                         keep_open: *keep_open,
                     },
-                    key_comp: ComputedText::new(key.to_string(), context, &config.font.0),
-                    val_comp: ComputedText::new(desc, context, &config.font.0),
+                    key_comp: ComputedText::new(key.to_string(), context, &config.theme.font.0),
+                    val_comp: ComputedText::new(desc, context, &config.theme.font.0),
                     key: key.clone(),
                 },
                 config::Entry::Recursive {
@@ -102,8 +102,12 @@ impl Menu {
                     let new_page = self.push_page(context, entries, config, Some(cur_page))?;
                     MenuItem {
                         action: Action::Submenu(new_page),
-                        key_comp: ComputedText::new(key.to_string(), context, &config.font.0),
-                        val_comp: ComputedText::new(format!("+{desc}"), context, &config.font.0),
+                        key_comp: ComputedText::new(key.to_string(), context, &config.theme.font.0),
+                        val_comp: ComputedText::new(
+                            format!("+{desc}"),
+                            context,
+                            &config.theme.font.0,
+                        ),
                         key: key.clone(),
                     }
                 }
@@ -115,6 +119,7 @@ impl Menu {
             }
 
             let col_i = config
+                .theme
                 .rows_per_column
                 .map_or(0, |rows_per_column| entry_i / rows_per_column);
 
@@ -141,8 +146,8 @@ impl Menu {
             .iter()
             .map(|col| col.key_col_width + col.val_col_width + self.separator.width)
             .sum::<f64>()
-            + (page.columns.len() - 1) as f64 * config.column_padding()
-            + (config.padding() + config.border_width) * 2.0
+            + (page.columns.len() - 1) as f64 * config.theme.column_padding
+            + (config.theme.padding + config.theme.border_width) * 2.0
     }
 
     pub fn height(&self, config: &Config) -> f64 {
@@ -152,19 +157,19 @@ impl Menu {
             .map(|col| page.item_height * col.items.len() as f64)
             .max_by(f64::total_cmp)
             .unwrap()
-            + (config.padding() + config.border_width) * 2.0
+            + (config.theme.padding + config.theme.border_width) * 2.0
     }
 
     pub fn render(&self, config: &config::Config, cairo_ctx: &cairo::Context) -> Result<()> {
-        let mut dx = config.padding() + config.border_width;
-        let dy = config.padding() + config.border_width;
+        let mut dx = config.theme.padding + config.theme.border_width;
+        let dy = config.theme.padding + config.theme.border_width;
         let page = &self.pages[self.cur_page];
         for col in &page.columns {
             self.render_column(config, cairo_ctx, dx, dy, page, col)?;
             dx += col.key_col_width
                 + col.val_col_width
                 + self.separator.width
-                + config.column_padding();
+                + config.theme.column_padding;
         }
         Ok(())
     }
@@ -184,7 +189,7 @@ impl Menu {
                 text::RenderOptions {
                     x: dx + column.key_col_width - comp.key_comp.width,
                     y: dy + page.item_height * (i as f64),
-                    fg_color: config.color,
+                    fg_color: config.theme.color,
                     height: page.item_height,
                 },
             )?;
@@ -193,7 +198,7 @@ impl Menu {
                 text::RenderOptions {
                     x: dx + column.key_col_width,
                     y: dy + page.item_height * (i as f64),
-                    fg_color: config.color,
+                    fg_color: config.theme.color,
                     height: page.item_height,
                 },
             )?;
@@ -202,7 +207,7 @@ impl Menu {
                 text::RenderOptions {
                     x: dx + column.key_col_width + self.separator.width,
                     y: dy + page.item_height * (i as f64),
-                    fg_color: config.color,
+                    fg_color: config.theme.color,
                     height: page.item_height,
                 },
             )?;
