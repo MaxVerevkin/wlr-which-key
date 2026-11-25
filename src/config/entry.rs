@@ -11,6 +11,7 @@ pub enum Entry {
         cmd: String,
         desc: String,
         keep_open: bool,
+        repeat: bool,
     },
     Recursive {
         key: Key,
@@ -26,6 +27,7 @@ struct RawEntry {
     desc: String,
     cmd: Option<String>,
     keep_open: Option<bool>,
+    repeat: Option<bool>,
     submenu: Option<Vec<Entry>>,
 }
 
@@ -40,6 +42,9 @@ impl TryFrom<RawEntry> for Entry {
             if value.keep_open.is_some() {
                 bail!("cannot have both 'submenu' and 'keep_open'");
             }
+            if value.repeat.is_some() {
+                bail!("cannot have both 'submenu' and 'repeat'");
+            }
             Ok(Self::Recursive {
                 key: value.key,
                 submenu,
@@ -53,6 +58,7 @@ impl TryFrom<RawEntry> for Entry {
                     .context("either or 'submenu' or 'cmd' is required")?,
                 desc: value.desc,
                 keep_open: value.keep_open.unwrap_or(false),
+                repeat: value.repeat.unwrap_or(false),
             })
         }
     }

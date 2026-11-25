@@ -72,6 +72,7 @@ impl From<Config> for super::Config {
                         cmd,
                         desc,
                         keep_open,
+                        repeat: false,
                     },
                     Entry::Recursive { submenu, desc } => super::Entry::Recursive {
                         key: key.into(),
@@ -95,6 +96,10 @@ impl From<Config> for super::Config {
             separator: value.separator,
             border_width: value.border_width,
             corner_r: value.corner_r,
+            corner_r_top_left: None,
+            corner_r_top_right: None,
+            corner_r_bottom_right: None,
+            corner_r_bottom_left: None,
             padding: value.padding,
             rows_per_column: None,
             column_padding: None,

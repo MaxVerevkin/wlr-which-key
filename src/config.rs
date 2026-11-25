@@ -42,6 +42,10 @@ pub struct Config {
     pub border_width: f64,
     #[default(20.0)]
     pub corner_r: f64,
+    pub corner_r_top_left: Option<f64>,
+    pub corner_r_top_right: Option<f64>,
+    pub corner_r_bottom_right: Option<f64>,
+    pub corner_r_bottom_left: Option<f64>,
     pub padding: Option<f64>,
     pub rows_per_column: Option<usize>,
     pub column_padding: Option<f64>,
@@ -86,6 +90,15 @@ impl Config {
 
     pub fn padding(&self) -> f64 {
         self.padding.unwrap_or(self.corner_r)
+    }
+
+    pub fn corner_radii(&self) -> [f64; 4] {
+        [
+            self.corner_r_top_left.unwrap_or(self.corner_r),
+            self.corner_r_top_right.unwrap_or(self.corner_r),
+            self.corner_r_bottom_right.unwrap_or(self.corner_r),
+            self.corner_r_bottom_left.unwrap_or(self.corner_r),
+        ]
     }
 
     pub fn column_padding(&self) -> f64 {
