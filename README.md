@@ -28,6 +28,8 @@ Keybindings may be single characters (e.g. `a`, `B`) or [xkb key labels](https:/
 When executed a command will normally end the `wlr_which_key` process. If you want certain commands to keep the UI open after they execute then
 configure those specific commands with (`keep_open: true`).
 
+If you want a command to repeat while its key is held down, set `repeat: true` on that entry. This is only useful together with `keep_open: true`.
+
 Example config:
 
 ```yaml
@@ -39,6 +41,11 @@ border: "#8ec07c"
 separator: " ➜ "
 border_width: 2
 corner_r: 10
+# Override individual corner radii. Defaults to corner_r.
+corner_r_top_left: 0
+corner_r_top_right: 10
+corner_r_bottom_right: 10
+corner_r_bottom_left: 0
 padding: 15 # Defaults to corner_r
 rows_per_column: 5 # No limit by default
 column_padding: 25 # Defaults to padding

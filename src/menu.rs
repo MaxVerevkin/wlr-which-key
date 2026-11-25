@@ -38,8 +38,18 @@ struct MenuItem {
 #[derive(Clone)]
 pub enum Action {
     Quit,
-    Exec { cmd: String, keep_open: bool },
+    Exec {
+        cmd: String,
+        keep_open: bool,
+        repeat: bool,
+    },
     Submenu(usize),
+}
+
+impl Action {
+    pub fn repeats(&self) -> bool {
+        matches!(self, Action::Exec { repeat: true, .. })
+    }
 }
 
 impl Menu {
@@ -85,10 +95,12 @@ impl Menu {
                     cmd,
                     desc,
                     keep_open,
+                    repeat,
                 } => MenuItem {
                     action: Action::Exec {
                         cmd: cmd.into(),
                         keep_open: *keep_open,
+                        repeat: *repeat,
                     },
                     key_comp: ComputedText::new(key.to_string(), context, &config.font.0),
                     val_comp: ComputedText::new(desc, context, &config.font.0),

@@ -66,7 +66,7 @@ fn main() -> anyhow::Result<()> {
         match initial_action {
             menu::Action::Submenu(_) => unreachable!(),
             menu::Action::Quit => return Ok(()),
-            menu::Action::Exec { cmd, keep_open } => {
+            menu::Action::Exec { cmd, keep_open, .. } => {
                 if keep_open {
                     bail!("Initial key sequence cannot trigger an action with keep_open=true");
                 }
@@ -268,26 +268,36 @@ impl State {
 
         cairo_ctx.new_sub_path();
         let half_border = self.config.border_width * 0.5;
-        let r = self.config.corner_r;
-        cairo_ctx.arc(r + half_border, r + half_border, r, PI, 3.0 * FRAC_PI_2);
-        cairo_ctx.arc(
-            width_f - r - half_border,
-            r + half_border,
-            r,
+        let [tl, tr, br, bl] = self.config.corner_radii();
+        rounded_corner(
+            &cairo_ctx,
+            tl + half_border,
+            tl + half_border,
+            tl,
+            PI,
+            3.0 * FRAC_PI_2,
+        );
+        rounded_corner(
+            &cairo_ctx,
+            width_f - tr - half_border,
+            tr + half_border,
+            tr,
             3.0 * FRAC_PI_2,
             TAU,
         );
-        cairo_ctx.arc(
-            width_f - r - half_border,
-            height_f - r - half_border,
-            r,
+        rounded_corner(
+            &cairo_ctx,
+            width_f - br - half_border,
+            height_f - br - half_border,
+            br,
             0.0,
             FRAC_PI_2,
         );
-        cairo_ctx.arc(
-            r + half_border,
-            height_f - r - half_border,
-            r,
+        rounded_corner(
+            &cairo_ctx,
+            bl + half_border,
+            height_f - bl - half_border,
+            bl,
             FRAC_PI_2,
             PI,
         );
@@ -322,7 +332,7 @@ impl State {
                 self.exit = true;
                 conn.break_dispatch_loop();
             }
-            menu::Action::Exec { cmd, keep_open } => {
+            menu::Action::Exec { cmd, keep_open, .. } => {
                 exec(&cmd);
                 if !keep_open {
                     self.exit = true;
@@ -408,7 +418,9 @@ impl KeyboardHandler for State {
             None
         };
         if let Some(action) = action {
-            if let Some(repeat) = event.repeat_info {
+            if let Some(repeat) = event.repeat_info
+                && action.repeats()
+            {
                 self.kbd_repeat = Some((Timer::new(repeat.delay, repeat.interval), action.clone()));
             }
             self.handle_action(conn, action);
@@ -518,6 +530,21 @@ fn poll(fd: RawFd, timeout: Option<Duration>) -> io::Result<()> {
     match res {
         -1 => Err(io::Error::last_os_error()),
         _ => Ok(()),
+    }
+}
+
+fn rounded_corner(
+    cairo_ctx: &cairo::Context,
+    center_x: f64,
+    center_y: f64,
+    radius: f64,
+    angle1: f64,
+    angle2: f64,
+) {
+    if radius > 0.0 {
+        cairo_ctx.arc(center_x, center_y, radius, angle1, angle2);
+    } else {
+        cairo_ctx.line_to(center_x, center_y);
     }
 }
 
