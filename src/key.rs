@@ -9,6 +9,7 @@ pub struct Key {
     any_of: Vec<SingleKey>,
 }
 
+#[cfg_attr(test, derive(Debug))]
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Default)]
 pub struct ModifierState {
     pub mod_ctrl: bool,
@@ -26,6 +27,7 @@ impl ModifierState {
     }
 }
 
+#[cfg_attr(test, derive(Debug))]
 #[derive(Clone, PartialEq, Eq, Hash)]
 pub struct SingleKey {
     pub keysym: xkb::Keysym,
@@ -176,5 +178,37 @@ impl<'de> de::Deserialize<'de> for SingleKey {
         }
 
         deserializer.deserialize_str(KeyVisitor)
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use rstest::rstest;
+    use wayrs_utils::keyboard::xkb;
+
+    #[rstest]
+    #[case::cap_a("A", SingleKey { keysym: xkb::Keysym::new(65), repr: "A".to_string(), modifiers: ModifierState::default() })]
+    #[case::low_a("a", SingleKey { keysym: xkb::Keysym::new(97), repr: "a".to_string(), modifiers: ModifierState::default() })]
+    #[case::plus("+", SingleKey { keysym: xkb::Keysym::plus, repr: "+".to_string(), modifiers: ModifierState::default() })]
+    #[case::ctrl_b("ctrl+b", SingleKey { keysym: xkb::Keysym::new(98), repr: "ctrl+b".to_string(), modifiers: ModifierState { mod_ctrl: true, ..Default::default() } })]
+    #[case::ctrl_alt_c("ctrl+alt+c", SingleKey { keysym: xkb::Keysym::new(99), repr: "ctrl+alt+c".to_string(), modifiers: ModifierState { mod_ctrl: true, mod_alt: true, ..Default::default() } })]
+    #[case::ctrl_alt_mod4_d("ctrl+alt+mod4+d", SingleKey { keysym: xkb::Keysym::new(100), repr: "ctrl+alt+mod4+d".to_string(), modifiers: ModifierState { mod_ctrl: true, mod_alt: true, mod_mod4: true } })]
+    #[case::logo_e("logo+e", SingleKey { keysym: xkb::Keysym::new(101), repr: "logo+e".to_string(), modifiers: ModifierState { mod_mod4: true, ..Default::default() }})]
+    fn it_parses_strings_to_single_key(#[case] input: &str, #[case] expected: SingleKey) {
+        let actual: SingleKey = input.parse().unwrap();
+        assert_eq!(actual, expected);
+    }
+
+    #[rstest]
+    #[case::aa("aa")]
+    #[case::fff("fff")]
+    #[case::clrt_g("clrt+g")]
+    #[case::h_ctrl("h+ctrl")]
+    //  TODO: Currently this would deserialize, but it should probably return an error
+    // #[case::ctrl_ctrl_i("ctrl+ctrl+i")]
+    fn it_rejects_invalid_single_key_strings(#[case] input: &str) {
+        let result = input.parse::<SingleKey>();
+        assert!(result.is_err(), "Expected {result:?} to be an error");
     }
 }
